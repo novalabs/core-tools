@@ -32,9 +32,9 @@ class CoreWorkspace(CoreContainer):
         self.modulesCoreDependencies = []
         self.modulesNoneDependencies = []
 
-    def getRoot(self):
+    def getRoot(self, cwd = None):
         if self.root is None: # Check for cached value
-            self.root = findFileGoingUp("WORKSPACE.json")
+            self.root = findFileGoingUp("WORKSPACE.json", cwd)
             if self.root is not None:
                 CoreConsole.ok("CoreWorkspace::getRoot: Workspace found in " + CoreConsole.highlightFilename(self.root))
             else:
@@ -79,10 +79,11 @@ class CoreWorkspace(CoreContainer):
                     self.generated = tmp
                 else:
                     self.generated = None
-            return self.generated
         except CoreError as e:
             self.reason = str(e.value)
             CoreConsole.fail("CoreWorkspace::getGeneratedPath: " + self.reason)
+
+        return self.generated
 
     def getBuildPath(self):
         try:
@@ -97,10 +98,11 @@ class CoreWorkspace(CoreContainer):
                     self.build = tmp
                 else:
                     self.build = None
-            return self.build
         except CoreError as e:
             self.reason = str(e.value)
             CoreConsole.fail("CoreWorkspace::getBuildPath: " + self.reason)
+
+        return self.build
 
     def getPackagesRoot(self):
         if not self.valid:
@@ -275,9 +277,7 @@ class CoreWorkspace(CoreContainer):
     def getModulesDependenciesSummaryFields():
         return ["Module", "Source", "Notes"]
 
-def action_completer(prefix, parsed_args, **kwargs):
-    mm = ["ls", "generate", "clean", "build"]
-    return (m for m in mm if m.startswith(prefix))
+# ENVIRONMENT VARIABLES -------------------------------------------------------
 
 NOVA_CORE_ROOT = os.environ.get("NOVA_CORE_ROOT")
 if NOVA_CORE_ROOT is None:
@@ -295,9 +295,7 @@ if NOVA_CHIBIOS_ROOT is None:
     sys.exit(-1)
 
 NOVA_WORKSPACE_ROOT = os.environ.get("NOVA_WORKSPACE_ROOT")
-if NOVA_CHIBIOS_ROOT is None:
-    CoreConsole.out(CoreConsole.error("NOVA_WORKSPACE_ROOT environment variable not found"))
-    sys.exit(-1)
+# check later if None - do not interfere with initialize
 
 CMAKE_PREFIX_PATH = os.environ.get("CMAKE_PREFIX_PATH")
 if CMAKE_PREFIX_PATH is None:
@@ -324,6 +322,33 @@ def cmakeCommand(chip, source):
 
     return cmake_cmd
 
+def createJSON(root):
+    buffer = []
+
+    buffer.append('{')
+    buffer.append('  "name": "Workspace",')
+    buffer.append('  "description": "Workspace",')
+    buffer.append('}')
+    buffer.append('')
+
+    sink = open(os.path.join(root, "WORKSPACE.json"), 'w')
+
+    sink.write("\n".join(buffer))
+
+def createSetup(root):
+    buffer = []
+
+    buffer.append('source ' + os.path.join(NOVA_CORE_ROOT, "setup.sh"))
+    buffer.append('export NOVA_WORKSPACE_ROOT=' + root)
+    buffer.append('')
+
+    sink = open(os.path.join(root, "setup.sh"), 'w')
+
+    sink.write("\n".join(buffer))
+
+def action_completer(prefix, parsed_args, **kwargs):
+    mm = ["ls", "generate", "init"]
+    return (m for m in mm if m.startswith(prefix))
 
 if '__main__' == __name__:
     try:
@@ -336,6 +361,9 @@ if '__main__' == __name__:
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
+        parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
+        parser_init.add_argument("--force", help="Re-Initialize [default = False]", action="store_true", default=False)
+
         argcomplete.autocomplete(parser)
         args = parser.parse_args()
 
@@ -343,11 +371,43 @@ if '__main__' == __name__:
             CoreConsole.debug = False
             CoreConsole.verbose = False
 
-        workspace = CoreWorkspace()
 
-        workspace.open(coreRoot = NOVA_CORE_ROOT)
+        if args.action == "initialize":
+            workspace = CoreWorkspace()
+
+            root = os.getcwd()
+
+            if workspace.getRoot(root) is not None:
+                if not args.force:
+                    raise CoreError("Workspace already initialized")
+                else:
+                    CoreConsole.out(CoreConsole.warning("Workspace already initialized, ignoring..."))
+                    root = workspace.getRoot()
+                    os.unlink(os.path.join(root, "WORKSPACE.json"))
+                    tmp = os.path.join(root, "setup.sh")
+                    if os.path.isfile(tmp):
+                        os.unlink(tmp)
+
+            # create WORKSPACE.json
+            createJSON(root)
+
+            # create setup.sh
+            createSetup(root)
+
+            # create directories
+            mkdir(os.path.join(root, "sources"))
+            mkdir(os.path.join(root, "generated"))
+            mkdir(os.path.join(root, "build"))
+
+            CoreConsole.out("Workspace initialized.")
+            CoreConsole.out("You can now do a 'source setup.sh'")
+
+            sys.exit(0)
 
         if args.action == "ls":
+            workspace = CoreWorkspace()
+            workspace.open(coreRoot=NOVA_CORE_ROOT)
+
             if workspace.opened:
                 table = []
 
@@ -385,6 +445,13 @@ if '__main__' == __name__:
             CoreConsole.out(CoreConsole.table(workspace.getModulesDependenciesSummary(), CoreWorkspace.getModulesDependenciesSummaryFields()))
 
         if args.action == "generate":
+            if NOVA_CHIBIOS_ROOT is None:
+                CoreConsole.out(CoreConsole.error("NOVA_WORKSPACE_ROOT environment variable not found"))
+                sys.exit(-1)
+
+            workspace = CoreWorkspace()
+            workspace.open(coreRoot=NOVA_CORE_ROOT)
+
             if workspace.opened:
                 table = []
 

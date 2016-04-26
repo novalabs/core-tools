@@ -12,7 +12,7 @@ class CoreContainer:
         self.invalidModuleTargets = []
 
     def listPackages(self):
-        path=self.getPackagesRoot()
+        path = self.getPackagesRoot()
 
         dirs = listDirectories(path, fullpath=True)
 

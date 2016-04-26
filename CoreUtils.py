@@ -174,8 +174,9 @@ def splitFilepath(filepath):
 #         printFail(highlightFilename(filepath) + Style.RESET_ALL + " not inside a package (?)")
 #         pass
 
-def findFileGoingUp(filename):
-    cwd = os.getcwd()
+def findFileGoingUp(filename, cwd = None):
+    if cwd is None:
+        cwd = os.getcwd()
 
     root = None
 
@@ -205,3 +206,10 @@ def copyOrLink(src, dst, rm=True):
             if os.path.exists(dst):
                 os.unlink(dst)
         shutil.copy2(src, dst)
+
+def mkdir(tmp):
+    if not os.path.isdir(tmp):
+        try:
+            os.makedirs(tmp)
+        except OSError as e:
+            raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
