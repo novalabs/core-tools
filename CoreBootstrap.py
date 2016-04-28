@@ -236,6 +236,3 @@ if '__main__' == __name__:
     except CoreError as e:
         CoreConsole.out(CoreConsole.error(e.value))
         sys.exit(-1)
-    except Exception as e:
-        CoreConsole.out("Exception: " + CoreConsole.error(repr(e)))
-        sys.exit(-1)
