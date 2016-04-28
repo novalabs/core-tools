@@ -5,34 +5,39 @@ class CoreMessage:
     schema = '{ "type": "record", "name": "CoreMessage", "namespace" : "", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "fields", "type": { "type": "array", "items": { "type": "record", "name": "CoreConfigurationParameter", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "type", "type": { "type": "enum", "name": "CoreConfigurationParameterDataType", "symbols": [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64", "TIMESTAMP" ] } }, { "name": "size", "type": "int", "default": 1 } ] } } } ] }'
 
     def __init__(self):
-        self.data = []
         self.package = None
         self.filename = ""
         self.source = ""
+
+        self.data = None
+
         self.name = ""
         self.namespace = ""
         self.description = ""
+
         self.destination = ""
-        self.valid = False
-        self.reason = ""
+
         self.buffer = []
+
+        self.valid = False
+        self.generated = False
+        self.reason = ""
 
     def openJSON(self, jsonFile):
         CoreConsole.info("MESSAGE: " + CoreConsole.highlightFilename(jsonFile))
 
         try:
             self.data = loadAndValidateJson(jsonFile, CoreMessage.schema)
-            if (self.filename == self.data["name"]):
+            if self.filename == self.data["name"]:
                 self.source = jsonFile
                 self.name = self.data["name"]
                 self.namespace = self.data["namespace"]
                 self.description = self.data["description"]
-                if (self.namespace == "@" or self.namespace == ""):
-                    if (self.package is not None):
+                if self.namespace == "@" or self.namespace == "":
+                    if self.package is not None:
                         self.namespace = self.package.name
 
                 self.valid = True
-                return True
             else:
                 raise CoreError("Message filename/name mismatch", jsonFile)
         except CoreError as e:
@@ -43,7 +48,7 @@ class CoreMessage:
 
         return True
 
-    def open(self, name, package=None):
+    def open(self, name, package = None):
         if package is not None:
             jsonFile = package.getMessageFile(name)
         else:
@@ -54,17 +59,18 @@ class CoreMessage:
             self.filename = getFileName(jsonFile)
 
             return self.openJSON(jsonFile)
+
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("CoreMessage::open: " + self.reason)
             return False
 
-        return True
-
     def generate(self, path):
+        self.generated = False
+
         try:
-            if (self.valid):
-                if (path == ""):
+            if self.valid:
+                if path == "":
                     raise CoreError("'out' file is empty")
                 try:
                     if self.package is not None:
@@ -72,7 +78,7 @@ class CoreMessage:
                     else:
                         path = path
 
-                    if (not os.path.isdir(path)):
+                    if not os.path.isdir(path):
                         os.makedirs(path)
 
                     self.destination = os.path.join(path, (self.name + ".hpp"))
@@ -84,17 +90,23 @@ class CoreMessage:
 
                     CoreConsole.ok("CoreMessage::generate " + CoreConsole.highlightFilename(self.destination))
 
-                    return True
+                    self.generated = True
+
                 except IOError as e:
                     raise CoreError(str(e.strerror), e.filename)
+            else:
+                return False
+
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("CoreMessage::generate: " + self.reason)
             return False
 
+        return True
+
     def process(self):
         self.buffer = []
-        if (self.valid):
+        if self.valid:
             self.__processPreamble()
             self.__processNamsepaceBegin()
             self.__processMessageBegin()
@@ -130,3 +142,39 @@ class CoreMessage:
         self.buffer.append('')
         for ns in namespace.split('::'):
             self.buffer.append('}')
+
+    def getSummary(self, relpath = None):
+        if self.valid:
+            if relpath is not None:
+                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, os.path.relpath(self.source, relpath)]
+            else:
+                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, self.source]
+        else:
+            return ["", "", CoreConsole.error(self.reason), ""]
+
+    @staticmethod
+    def getSummaryFields():
+        return ["NS", "Name", "Description", "Source"]
+
+    def getSummaryGenerate(self, relpathSrc = None, relpathDst = None):
+        if self.valid:
+            if relpathSrc is not None:
+                src = os.path.relpath(self.source, relpathSrc)
+            else:
+                src = self.source
+
+            if relpathDst is not None:
+                dst = os.path.relpath(self.destination, relpathDst)
+            else:
+                dst = self.destination
+
+            if self.generated:
+                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, src, dst]
+            else:
+                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, src, CoreConsole.error(self.reason)]
+        else:
+            return ["", "", CoreConsole.error(self.reason), "", ""]
+
+    @staticmethod
+    def getSummaryFieldsGenerate():
+        return ["NS", "Name", "Description", "Root", "Generate"]

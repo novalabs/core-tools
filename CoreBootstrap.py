@@ -158,12 +158,6 @@ def printElement(x):
     CoreConsole.out(" |- " + Fore.YELLOW + x["name"] + Fore.RESET + ": " + x["description"])
     CoreConsole.out(" |  " + x["url"] + " [" + x["branch"] + "]")
 
-def printSuccessOrFailure(failure):
-    if not failure:
-        CoreConsole.out(Fore.GREEN + Style.BRIGHT + "SUCCESS" + Fore.RESET + Style.RESET_ALL)
-    else:
-        CoreConsole.out(Fore.RED + Style.BRIGHT + "FAILURE" + Fore.RESET + Style.RESET_ALL)
-
 if '__main__' == __name__:
     try:
         CoreConsole.debug = False
@@ -214,7 +208,7 @@ if '__main__' == __name__:
                     failure = True
             CoreConsole.out("")
 
-        printSuccessOrFailure(failure)
+        printSuccessOrFailure(not failure)
 
         if failure:
             sys.exit(-1)
@@ -226,7 +220,7 @@ if '__main__' == __name__:
 
         failure = not bootstrapper.writeSetupSh()
 
-        printSuccessOrFailure(failure)
+        printSuccessOrFailure(not failure)
 
         if failure:
             sys.exit(-1)

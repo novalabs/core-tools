@@ -1,10 +1,11 @@
+import shutil
+from json import loads
+
 from avro.io import validate
 from avro.schema import parse
-from json import loads
-import sys
-import os
+
 from CoreConsole import *
-import shutil
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -12,7 +13,7 @@ class Error(Exception):
 
 
 class CoreError(Exception):
-    def __init__(self, value, file=None, context=None):
+    def __init__(self, value, file = None, context = None):
         self.value = value
         self.context = context
         self.file = file
@@ -61,6 +62,7 @@ def listFiles(path):
     tmp.sort()
     return tmp
 
+
 def listDirectories(path, fullpath = False):
     tmp = []
 
@@ -68,7 +70,7 @@ def listDirectories(path, fullpath = False):
         for file in os.listdir(path):
             x = os.path.join(path, file)
             if os.path.isdir(x):
-                if(fullpath):
+                if fullpath:
                     tmp.append(x)
                 else:
                     tmp.append(file)
@@ -105,74 +107,9 @@ def loadAndValidateJson(filename, schemaJSON):
         raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
 
 
-#
-# def loadAndValidateJsonX(filename, schemaJSON, prefix="Loading JSON File: "):
-#     schema = parse(schemaJSON)
-#     try:
-#         data = loads(open(filename, 'r').read())
-#         if validate(schema, data):
-#             CoreConsole.ok(prefix + highlightFilename(filename) + Style.RESET_ALL)
-#             return data
-#         else:
-#             CoreConsole.fail(prefix + highlightFilename(filename) + Style.RESET_ALL + " Error: file invalid according to schema")
-#             raise CoreError("File invalid according to schema")
-#     except ValueError:
-#         CoreConsole.fail(prefix + highlightFilename(filename) + Style.RESET_ALL + " Error: broken JSON file")
-#         raise CoreError("Broken JSON file")
-#     except IOError as e:
-#         CoreConsole.fail(prefix + highlightFilename(filename) + Style.RESET_ALL + " I/0 Error: " + e.strerror)
-#         raise CoreError("I/0 Error: " + e.strerror)
-
-
 def splitFQN(x):
     return x.split("::")
 
-
-def joinNodeFilename(root, package, name):
-    return os.path.join(root, "packages", package, "Nodes", name + ".json")
-
-
-def joinConfigurationFilename(root, package, name):
-    return os.path.join(root, "packages", package, "Configurations", name + ".json")
-
-
-def splitFilepath(filepath):
-    (fileroot, filename) = os.path.split(filepath)
-    (packageroot, type) = os.path.split(fileroot)
-    (root, package) = os.path.split(packageroot)
-
-    if type in ["Nodes", "Configurations", "Messages"]:
-        if root.endswith("packages"):
-            return root, package, type, filename
-
-    raise Error
-
-
-# def getPackageRoot(filepath):
-#     try:
-#         (root, package, type, filename) = splitFilepath(filepath)
-#         return os.path.join(root, package)
-#     except Error:
-#         printFail(highlightFilename(filepath) + Style.RESET_ALL + " not inside a package (?)")
-#         pass
-#
-#
-# def getPackageName(filepath):
-#     try:
-#         (root, package, type, filename) = splitFilepath(filepath)
-#         return package
-#     except Error:
-#         printFail(highlightFilename(filepath) + Style.RESET_ALL + " not inside a package (?)")
-#         pass
-#
-#
-# def getIncludeDir(filepath):
-#     try:
-#         (root, package, type, filename) = splitFilepath(filepath)
-#         return os.path.join(root, package, "include", package)
-#     except Error:
-#         printFail(highlightFilename(filepath) + Style.RESET_ALL + " not inside a package (?)")
-#         pass
 
 def findFileGoingUp(filename, cwd = None):
     if cwd is None:
@@ -189,8 +126,14 @@ def findFileGoingUp(filename, cwd = None):
 
     return root
 
-def copyOrLink(src, dst, rm=True):
-    link = True
+
+def copyOrLink(src, dst, rm = True):
+    link = os.environ.get("NOVA_CORE_LINKS_NOT_COPIES")
+
+    if link is not None:
+        link = True
+    else:
+        link = False
 
     if link:
         if os.path.islink(dst):
@@ -207,9 +150,16 @@ def copyOrLink(src, dst, rm=True):
                 os.unlink(dst)
         shutil.copy2(src, dst)
 
+
 def mkdir(tmp):
     if not os.path.isdir(tmp):
         try:
             os.makedirs(tmp)
         except OSError as e:
             raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
+
+def printSuccessOrFailure(success):
+    if success:
+        CoreConsole.out(Fore.GREEN + Style.BRIGHT + "SUCCESS" + Fore.RESET + Style.RESET_ALL)
+    else:
+        CoreConsole.out(Fore.RED + Style.BRIGHT + "FAILURE" + Fore.RESET + Style.RESET_ALL)
