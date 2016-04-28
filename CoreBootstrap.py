@@ -1,13 +1,18 @@
-import git, os, shutil, stat
+import git
+
 from CoreUtils import *
+
 
 class CoreBootstrap:
     schema = '{ "name": "CoreRepos", "type": "record", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "core", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "packages", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposPackageP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "modules", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposModuleP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } } ] }'
+    REMOTE_URL = "https://github.com/novalabs/core-repos.git"
 
     def __init__(self, path):
         self.repos = None
         self.coreRoot = None
         self.source = ""
+
+        self.data = None
 
         self.name = ""
         self.description = ""
@@ -16,11 +21,11 @@ class CoreBootstrap:
         self.packages = []
         self.modules = []
 
-
         self.core = None
         self.repos = None
 
         self.valid = False
+        self.reason = ""
 
         self.getReposPath(path)
 
@@ -52,13 +57,15 @@ class CoreBootstrap:
             repo.git.checkout('origin/' + branch, b=branch)
 
             return True
+
         except Exception as e:
             self.reason = str(e)
             return False
 
-    def fetchRepos(self, url = None, path = ""):
+    def fetchRepos(self, url = None):
         try:
-            REMOTE_URL = "https://github.com/novalabs/core-repos.git"
+            if url is None:
+                url = CoreBootstrap.REMOTE_URL
 
             if os.path.isdir(self.getReposPath()):
                 shutil.rmtree(self.getReposPath())
@@ -66,17 +73,17 @@ class CoreBootstrap:
             os.makedirs(self.getReposPath())
 
             repo = git.Repo.init(self.getReposPath())
-            origin = repo.create_remote('origin', REMOTE_URL)
+            origin = repo.create_remote('origin', url)
             origin.fetch()
             repo.git.checkout('origin/master', b='master')
 
             shutil.copy2(os.path.join(self.getReposPath(), "CORE.json"), os.path.join(self.getCoreRoot(), "CORE.json"))
 
             return True
+
         except Exception as e:
             self.reason = str(e)
             return False
-
 
     def openJSON(self, jsonFile):
         CoreConsole.info("CoreBootstrap: " + CoreConsole.highlightFilename(jsonFile))
@@ -89,11 +96,11 @@ class CoreBootstrap:
 
             self.valid = True
 
-            return True
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("CoreBootstrap::openJSON: " + self.reason)
             self.valid = False
+            return False
 
         return True
 
@@ -102,32 +109,30 @@ class CoreBootstrap:
 
         try:
             jsonFile = os.path.join(self.getReposPath(path), "REPOS.json")
-
             return self.openJSON(jsonFile)
+
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("CoreBootstrap::open: " + self.reason)
             return False
 
     def getCore(self):
-        if len(x.data["core"]) == 0:
+        if len(bootstrapper.data["core"]) == 0:
             return None
 
-        return x.data["core"]
-
+        return bootstrapper.data["core"]
 
     def getModules(self):
-        if len(x.data["modules"]) == 0:
+        if len(bootstrapper.data["modules"]) == 0:
             return None
 
-        return x.data["modules"]
-
+        return bootstrapper.data["modules"]
 
     def getPackages(self):
-        if len(x.data["packages"]) == 0:
+        if len(bootstrapper.data["packages"]) == 0:
             return None
 
-        return x.data["packages"]
+        return bootstrapper.data["packages"]
 
     def writeSetupSh(self):
         buffer = []
@@ -140,79 +145,97 @@ class CoreBootstrap:
         buffer.append('')
 
         destination = os.path.join(self.getCoreRoot(), "setup.sh")
+
         sink = open(destination, 'w')
         sink.write("\n".join(buffer))
+
         os.chmod(destination, 0o744)
 
-        CoreConsole.out(Fore.YELLOW + "setup.sh" + Fore.RESET + " has been generated")
+        return True
+
 
 def printElement(x):
     CoreConsole.out(" |- " + Fore.YELLOW + x["name"] + Fore.RESET + ": " + x["description"])
     CoreConsole.out(" |  " + x["url"] + " [" + x["branch"] + "]")
 
+def printSuccessOrFailure(failure):
+    if not failure:
+        CoreConsole.out(Fore.GREEN + Style.BRIGHT + "SUCCESS" + Fore.RESET + Style.RESET_ALL)
+    else:
+        CoreConsole.out(Fore.RED + Style.BRIGHT + "FAILURE" + Fore.RESET + Style.RESET_ALL)
 
 if '__main__' == __name__:
     try:
         CoreConsole.debug = False
         CoreConsole.verbose = False
 
-        x = CoreBootstrap(os.getcwd())
+        CoreConsole.out(Fore.MAGENTA + "Bootstrapping Core Distribution" + Fore.RESET)
+        CoreConsole.out("")
 
-        if not x.fetchRepos():
-            raise CoreError(x.reason)
+        bootstrapper = CoreBootstrap(os.getcwd())
 
-        x.open()
+        if not bootstrapper.fetchRepos():
+            raise CoreError(bootstrapper.reason)
+
+        bootstrapper.open()
 
         failure = False
-        if True:
-            if x.getCore() is not None:
-                CoreConsole.out("CORE")
-                for tmp in x.getCore():
-                    printElement(tmp)
-                    if x.fetchRepo(tmp["url"], tmp["branch"], tmp["name"]):
-                        CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
-                    else:
-                        CoreConsole.out(CoreConsole.error(x.reason))
-                        failure = True
-                CoreConsole.out("")
 
-            if x.getModules() is not None:
-                CoreConsole.out("MODULES")
-                for tmp in x.getModules():
-                    printElement(tmp)
-                    if x.fetchRepo(tmp["url"], tmp["branch"], os.path.join("modules", tmp["name"])):
-                        CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
-                    else:
-                        CoreConsole.out(CoreConsole.error(x.reason))
-                        failure = True
-                CoreConsole.out("")
+        if bootstrapper.getCore() is not None:
+            CoreConsole.out("Fetching CORE")
+            for tmp in bootstrapper.getCore():
+                printElement(tmp)
+                if bootstrapper.fetchRepo(tmp["url"], tmp["branch"], tmp["name"]):
+                    CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                else:
+                    CoreConsole.out(CoreConsole.error(bootstrapper.reason))
+                    failure = True
+            CoreConsole.out("")
 
-            if x.getPackages() is not None:
-                CoreConsole.out("PACKAGES")
-                for tmp in x.getPackages():
-                    printElement(tmp)
-                    if x.fetchRepo(tmp["url"], tmp["branch"], os.path.join("packages", tmp["name"])):
-                        CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
-                    else:
-                        CoreConsole.out(CoreConsole.error(x.reason))
-                        failure = True
-                CoreConsole.out("")
+        if bootstrapper.getModules() is not None:
+            CoreConsole.out("Fetching MODULES")
+            for tmp in bootstrapper.getModules():
+                printElement(tmp)
+                if bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("modules", tmp["name"])):
+                    CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                else:
+                    CoreConsole.out(CoreConsole.error(bootstrapper.reason))
+                    failure = True
+            CoreConsole.out("")
 
-        if not failure:
-            CoreConsole.out(Fore.GREEN + Style.BRIGHT + "SUCCESS" + Fore.RESET + Style.RESET_ALL)
-        else:
-            CoreConsole.out(Fore.RED + Style.BRIGHT + "FAILURE" + Fore.RESET + Style.RESET_ALL)
-            sys.exit(-1001)
+        if bootstrapper.getPackages() is not None:
+            CoreConsole.out("Fetching PACKAGES")
+            for tmp in bootstrapper.getPackages():
+                printElement(tmp)
+                if bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("packages", tmp["name"])):
+                    CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                else:
+                    CoreConsole.out(CoreConsole.error(bootstrapper.reason))
+                    failure = True
+            CoreConsole.out("")
+
+        printSuccessOrFailure(failure)
+
+        if failure:
+            sys.exit(-1)
 
         CoreConsole.out("")
 
-        x.writeSetupSh()
+        CoreConsole.out("Generating " + Fore.YELLOW + "setup.sh" + Fore.RESET)
+        CoreConsole.out("")
 
+        failure = not bootstrapper.writeSetupSh()
 
+        printSuccessOrFailure(failure)
+
+        if failure:
+            sys.exit(-1)
+
+        sys.exit(0)
 
     except CoreError as e:
         CoreConsole.out(CoreConsole.error(e.value))
-        sys.exit(-1000)
+        sys.exit(-1)
     except Exception as e:
         CoreConsole.out("Exception: " + CoreConsole.error(repr(e)))
-        sys.exit(-1000)
+        sys.exit(-1)
