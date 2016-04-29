@@ -10,7 +10,6 @@ import argparse
 
 import argcomplete
 
-import CoreConfiguration
 from CoreConfiguration import *
 from CoreMessage import *
 from CoreNode import *
@@ -411,13 +410,13 @@ def generate(srcPath, dstPath, workspaceMode, verbose):
     table = []
     tmp = package.listConfigurationFiles()
     for x in tmp:
-        configuration = CoreConfiguration()
-        if configuration.open(x, package):
-            configuration.generate(targetPath)
+        conf = CoreConfiguration()
+        if conf.open(x, package):
+            conf.generate(targetPath)
 
-        table.append(configuration.getSummaryGenerate(package.packageRoot, package.destination))
+        table.append(conf.getSummaryGenerate(package.packageRoot, package.destination))
 
-        if not configuration.generated:
+        if not conf.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
@@ -443,12 +442,12 @@ def generate(srcPath, dstPath, workspaceMode, verbose):
         CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFieldsGenerate()))
 # -----------------------------------------------------------------------------
 
-        printSuccessOrFailure(isOk)
+    printSuccessOrFailure(isOk)
 
-        if isOk:
-            return 0
-        else:
-            return -1
+    if isOk:
+        return 0
+    else:
+        return -1
 
 
 if '__main__' == __name__:
@@ -518,4 +517,3 @@ if '__main__' == __name__:
     except CoreError as e:
         CoreConsole.out(CoreConsole.error(e.value))
         sys.exit(-1)
-

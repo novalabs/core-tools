@@ -303,13 +303,15 @@ def generate(srcPath, dstPath, workspaceMode, verbose):
         isOk = p.generate(targetPath)
 
     table = [p.getSummaryGenerate(p.root)]
-    CoreConsole.out("=== MODULE =====================================================")
+    CoreConsole.out(CoreConsole.h1("MODULE"))
     CoreConsole.out(CoreConsole.table(table, CoreModule.getSummaryFieldsGenerate()))
+
+    printSuccessOrFailure(isOk)
 
     if isOk:
         return 0
     else:
-        return -2
+        return -1
 
 
 if '__main__' == __name__:

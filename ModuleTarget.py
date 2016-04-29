@@ -3,7 +3,6 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from CoreUtils import *
 from CoreModule import *
 
 
@@ -11,31 +10,41 @@ class ModuleTarget:
     schema = '{ "type": "record", "name": "ModuleTarget", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "module", "type": "string" }, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "sources", "type": { "type": "array", "items": "string" } }, { "name": "includes", "type": { "type": "array", "items": "string" } } ] }'
 
     def __init__(self):
-        self.data = []
         self.workspace = None
+
         self.filename = ""
+        self.root = None
+        self.moduleTargetRoot = None
         self.source = ""
+
+        self.data = None
+
         self.name = ""
         self.namespace = ""
         self.description = ""
-        self.destination = ""
-        self.requiredPackages = ""
         self.module = ""
+
+        self.destination = ""
+
+        self.buffer = []
+
+        self.valid = False
+        self.generated = False
+        self.reason = ""
+
         self.sources = None
         self.includes = None
-        self.valid = False
-        self.reason = ""
-        self.buffer = []
-        self.coreModule = None
-        self.moduleTargetRoot = None
+        self.requiredPackages = ""
 
-    def openJSON(self, filename):
-        CoreConsole.info("MODULE_TARGET: " + CoreConsole.highlightFilename(filename))
+        self.coreModule = None
+
+    def openJSON(self, jsonFile):
+        CoreConsole.info("MODULE_TARGET: " + CoreConsole.highlightFilename(jsonFile))
 
         try:
-            self.data = loadAndValidateJson(filename, ModuleTarget.schema)
+            self.data = loadAndValidateJson(jsonFile, ModuleTarget.schema)
             if self.filename == self.data["name"]:
-                self.source = filename
+                self.source = jsonFile
                 self.name = self.data["name"]
                 self.description = self.data["description"]
                 self.module = self.data["module"]
@@ -52,20 +61,14 @@ class ModuleTarget:
                     self.requiredPackages.append(x)
 
                 self.valid = True
-
-                return True
             else:
-                self.reason = "Target folder/name mismatch [" + self.filename + "/" + self.data["name"] + "]"
-                CoreConsole.fail("ModuleTarget::openJSON: " + self.reason)
-                self.valid = False
-
-                return False
-
+                raise CoreError("Target filename/name mismatch", jsonFile)
         except CoreError as e:
             self.reason = str(e.value)
             CoreConsole.fail("ModuleTarget::openJSON: " + self.reason)
-
             return False
+
+        return True
 
     def getRoot(self):
         if self.root is None:  # Check for cached value
@@ -108,6 +111,8 @@ class ModuleTarget:
         return False
 
     def generate(self, out=""):
+        self.generated = False
+
         if self.valid:
             try:
                 if out == "":
@@ -124,12 +129,14 @@ class ModuleTarget:
                 sink.write("\n".join(self.buffer))
                 CoreConsole.ok("ModuleTarget::generate " + CoreConsole.highlightFilename(self.destination))
 
-                return True
+                self.generated = True
             except IOError as e:
                 self.reason = CoreConsole.error(str(e.strerror) + " [" + CoreConsole.highlightFilename(e.filename) + "]")
                 CoreConsole.fail("ModuleTarget::generate: " + self.reason)
+        else:
+            return False
 
-        return False
+        return True
 
     def process(self):
         self.buffer = []
@@ -178,6 +185,48 @@ class ModuleTarget:
     @staticmethod
     def check(root, name=None):
         if name is None:
-            return os.path.exists(os.path.join(root,"MODULE_TARGET.json"))
+            return os.path.exists(os.path.join(root, "MODULE_TARGET.json"))
         else:
             return os.path.exists(os.path.join(root, name, "MODULE_TARGET.json"))
+
+
+    def getSummary(self, relpath=None):
+        if relpath is not None:
+            src = os.path.relpath(self.moduleTargetRoot, relpath)
+        else:
+            src = os.path.relpath(self.moduleTargetRoot, relpath)
+
+        if self.valid:
+            return [CoreConsole.highlight(self.name), self.description, self.module, src]
+        else:
+            return ["", CoreConsole.error(self.reason), "", src]
+
+
+    @staticmethod
+    def getSummaryFields():
+        return ["Name", "Description", "Module", "Root"]
+
+
+    def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
+        if self.valid:
+            if relpathSrc is not None:
+                src = os.path.relpath(self.moduleTargetRoot, relpathSrc)
+            else:
+                src = os.path.relpath(self.moduleTargetRoot, relpathSrc)
+
+            if relpathDst is not None:
+                dst = os.path.relpath(self.destination, relpathDst)
+            else:
+                dst = self.destination
+
+            if self.generated:
+                return [CoreConsole.highlight(self.name), self.description, self.module, src, dst]
+            else:
+                return [CoreConsole.highlight(self.name), self.description, self.module, src, CoreConsole.error(self.reason)]
+        else:
+            return ["", CoreConsole.error(self.reason), "", "", ""]
+
+
+    @staticmethod
+    def getSummaryFieldsGenerate():
+        return ["Name", "Description", "Module", "Root", "Generate"]
