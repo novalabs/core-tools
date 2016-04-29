@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+
+# COPYRIGHT (c) 2016 Nova Labs SRL
 #
+# All rights reserved. All use of this software and documentation is
+# subject to the License Agreement located in the file LICENSE.
+
 from __future__ import print_function
 import os
 from colorama import Fore, Back, Style
