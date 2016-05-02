@@ -352,8 +352,20 @@ def createSetup(root):
 
 
 def action_completer(prefix, parsed_args, **kwargs):
-    mm = ["ls", "generate", "init"]
+    mm = ["ls", "generate", "init", "target"]
     return (m for m in mm if m.startswith(prefix))
+
+
+def target_action_completer(prefix, parsed_args, **kwargs):
+    mm = ["add"]
+    return (m for m in mm if m.startswith(prefix))
+
+def module_completer(prefix, parsed_args, **kwargs):
+    if parsed_args.action is not None:
+        coreRoot = os.environ.get("NOVA_CORE_ROOT")
+        if coreRoot is not None:
+            mm = listDirectories(os.path.join(coreRoot, "modules"))  # TODO ...
+            return (m for m in mm if m.startswith(prefix))
 
 
 def ls(srcPath, verbose):
@@ -664,6 +676,65 @@ def initialize(force, verbose):
         return -1
 
 
+def target_add(module_name, name):
+    if not verbose:
+        CoreConsole.debug = False
+        CoreConsole.verbose = False
+
+    isOk = True
+
+    workspace = CoreWorkspace()
+    workspace.open(coreRoot=NOVA_CORE_ROOT)
+
+    if not workspace.opened:
+        CoreConsole.out(CoreConsole.error(workspace.reason))
+        printSuccessOrFailure(False)
+        return -1
+
+    for target in workspace.validModuleTargets:
+        if target.name == name:
+            CoreConsole.out(CoreConsole.error("Target '" + name +  "' already defined"))
+            CoreConsole.out("")
+            printSuccessOrFailure(False)
+            return -1
+
+    target_root = os.path.join(workspace.getModuleTargetsRoot(), name)
+
+    if os.path.isdir(target_root):
+        shutil.rmtree(target_root)
+
+    module = workspace.getModuleByName(module_name)
+    if module is not None:
+        CoreConsole.out("Using Workspace module '" + module_name + "'")
+    else:
+        module = workspace.core.getModuleByName(module_name)
+        if module is not None:
+            CoreConsole.out("Using Core module '" + module_name + "'")
+        else:
+            CoreConsole.out(CoreConsole.error("Module '" + module_name + "' does not exists"))
+            CoreConsole.out("")
+            printSuccessOrFailure(False)
+            return -1
+
+#TODO Add some error handling
+
+    shutil.copytree(os.path.join(module.moduleRoot, "target_template"), target_root)
+
+    src = open(os.path.join(target_root, "MODULE_TARGET.json"))
+    json = src.read()
+    src.close()
+
+    json = json.replace("@@NAME@@", name)
+    json = json.replace("@@DESCRIPTION@@", name)
+
+    sink = open(os.path.join(target_root, "MODULE_TARGET.json"), 'w')
+    sink.write(json)
+    sink.close()
+
+    CoreConsole.out("")
+    printSuccessOrFailure(True)
+    return 0
+
 if '__main__' == __name__:
     try:
         parser = argparse.ArgumentParser()
@@ -677,6 +748,15 @@ if '__main__' == __name__:
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
         parser_init.add_argument("--force", help="Re-Initialize [default = False]", action="store_true", default=False)
+
+        parser_target = subparsers.add_parser('module', help='Workspace Targets management')
+
+        subparsers_target = parser_target.add_subparsers(help='Sub command help', dest='target_action')
+
+        parser_target_add = subparsers_target.add_parser('add', help='Add a target to the workspace')
+
+        parser_target_add.add_argument("core_module", nargs=1, help="Module [default = None]", default=None).completer = module_completer
+        parser_target_add.add_argument("name", nargs=1, help="Target name [default = None]", default=None)
 
         argcomplete.autocomplete(parser)
         args = parser.parse_args()
@@ -701,6 +781,12 @@ if '__main__' == __name__:
             force = args.force
 
             retval = generate(None, None, force, verbose)
+
+        if args.action == "module":
+            module_name = args.core_module[0]
+            targetName = args.name[0]
+
+            retval = target_add(module_name, targetName)
 
         sys.exit(retval)
 

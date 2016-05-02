@@ -70,9 +70,9 @@ class ModuleTarget:
 
         return True
 
-    def getRoot(self):
+    def getRoot(self, cwd = None):
         if self.root is None:  # Check for cached value
-            self.root = findFileGoingUp("MODULE_TARGET.json")
+            self.root = findFileGoingUp("MODULE_TARGET.json", cwd)
             if self.root is not None:
                 CoreConsole.ok("ModuleTarget::getRoot: ModuleTarget found in " + CoreConsole.highlightFilename(self.root))
             else:
@@ -230,3 +230,24 @@ class ModuleTarget:
     @staticmethod
     def getSummaryFieldsGenerate():
         return ["Name", "Description", "Module", "Root", "Generate"]
+
+
+    # @staticmethod
+    # def createJSON(root):
+    #     buffer = []
+    #
+    #     buffer.append('{')
+    #     buffer.append('    "name": "xxx",')
+    #     buffer.append('    "description": "XXX",')
+    #     buffer.append('    "module": "xxx",')
+    #     buffer.append('    "required_packages": [')
+    #     buffer.append('    ],')
+    #     buffer.append('    "sources": [')
+    #     buffer.append('        "main.cpp"')
+    #     buffer.append('    ],')
+    #     buffer.append('    "includes": []')
+    #     buffer.append('}')
+    #
+    #     sink = open(os.path.join(root, "MODULE_TARGET.json"), 'w')
+    #
+    #     sink.write("\n".join(buffer))
