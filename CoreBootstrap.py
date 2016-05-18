@@ -6,6 +6,7 @@
 import git
 
 from CoreUtils import *
+import sys
 
 
 class CoreBootstrap:
