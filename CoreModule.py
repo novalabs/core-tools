@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
@@ -260,6 +260,8 @@ def ls(srcPath, workspaceMode, verbose):
         CoreConsole.debug = False
         CoreConsole.verbose = False
 
+    isOk = True
+
     p = CoreModule()
     p.open(srcPath)
 
@@ -268,14 +270,14 @@ def ls(srcPath, workspaceMode, verbose):
     CoreConsole.out(CoreConsole.table(table, CoreModule.getSummaryFields()))
 
     if not p.valid:
-        return -101
+        isOk = False
 
-    isOk = True
+    printSuccessOrFailure(isOk)
 
     if isOk:
         return 0
     else:
-        return -2
+        return -1
 
 
 def generate(srcPath, dstPath, workspaceMode, verbose):
@@ -294,8 +296,6 @@ def generate(srcPath, dstPath, workspaceMode, verbose):
     table = []
 
     targetPath = dstPath
-
-    isOk = True
 
     if workspaceMode:
         isOk = p.generate(targetPath, "${WORKSPACE_MODULES_PATH}")
@@ -333,6 +333,9 @@ if '__main__' == __name__:
 
         retval = 0
 
+        if args.action is None:
+            sys.exit(-1)
+            
         src = args.module
 
         if src is not None:

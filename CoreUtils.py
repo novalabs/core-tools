@@ -4,13 +4,13 @@
 # subject to the License Agreement located in the file LICENSE.
 
 import shutil
+import sys
+import os
+
 from json import loads
-
-from avro.io import validate
-from avro.schema import parse
-
+from avro.io import Validate as validate
+from avro.schema import Parse as parse
 from CoreConsole import *
-
 
 class Error(Exception):
     """Base class for exceptions in this module."""

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
@@ -766,6 +766,9 @@ if '__main__' == __name__:
 
         retval = 0
 
+        if args.action is None:
+            sys.exit(-1)
+            
         verbose = args.verbose
 
         if not verbose:

@@ -1,17 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
 #
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from avro.io import validate
-from avro.schema import parse
 from json import loads
 from sys import argv
 from string import Template
-import sys
-import os
 from CoreUtils import *
 
 class CoreNode:

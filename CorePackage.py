@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
@@ -7,7 +7,6 @@
 # subject to the License Agreement located in the file LICENSE.
 
 import argparse
-
 import argcomplete
 
 from CoreConfiguration import *
@@ -468,6 +467,9 @@ if '__main__' == __name__:
         args = parser.parse_args()
 
         retval = 0
+
+        if args.action is None:
+            sys.exit(-1)
 
         src = args.package
         workspaceMode = not args.no_workspace
