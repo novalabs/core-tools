@@ -309,7 +309,7 @@ if CMAKE_MODULE_PATH is None:
     sys.exit(-1)
 
 
-def cmakeCommand(chip, source):
+def cmakeCommand(chip, source, workspaceRoot = NOVA_WORKSPACE_ROOT):
     cmake_cmd = "cmake --verbose"
     cmake_cmd += " -DSTM32_CHIP=" + chip
     cmake_cmd += " -DCMAKE_TOOLCHAIN_FILE=" + CMAKE_PREFIX_PATH + "/gcc_stm32.cmake"
@@ -318,7 +318,7 @@ def cmakeCommand(chip, source):
     cmake_cmd += " -DCMAKE_MODULE_PATH=" + CMAKE_MODULE_PATH
     cmake_cmd += " -DCHIBIOS_ROOT="+NOVA_CHIBIOS_ROOT
     cmake_cmd += " -DNOVA_ROOT="+NOVA_CORE_ROOT
-    cmake_cmd += " -DNOVA_WORKSPACE_ROOT="+NOVA_WORKSPACE_ROOT
+    cmake_cmd += " -DNOVA_WORKSPACE_ROOT="+workspaceRoot
     cmake_cmd += ' -G "Eclipse CDT4 - Unix Makefiles"'
     cmake_cmd += " " + source
 
@@ -590,7 +590,7 @@ def generate(srcPath, dstPath, force, verbose):
         if executeCmake:
             (source, dummy) = os.path.split(m.source)
 
-            cmake_cmd = cmakeCommand(cm.chip, source)
+            cmake_cmd = cmakeCommand(cm.chip, source, workspace.getRoot())
 
             try:
                 CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
