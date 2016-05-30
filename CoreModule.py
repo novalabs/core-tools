@@ -154,6 +154,16 @@ class CoreModule:
             for file in self.sources:
                 copyOrLink(os.path.join(srcSources, file), os.path.join(dstSources, file))
 
+        srcMisc = os.path.join(self.moduleRoot, "misc")
+        dstMisc = os.path.join(self.destination, "misc")
+
+        misc = listFiles(srcMisc)
+        if len(misc) > 0:
+            if not os.path.isdir(dstMisc):
+                os.makedirs(dstMisc)
+            for file in misc:
+                copyOrLink(os.path.join(srcMisc, file), os.path.join(dstMisc, file))
+
         self.__processCMake()
 
         self.cmake = os.path.join(self.destination, self.name + "Config.cmake")
