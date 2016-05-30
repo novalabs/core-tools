@@ -7,10 +7,15 @@ import shutil
 import sys
 import os
 
-from json import loads
-from avro.io import Validate as validate
-from avro.schema import Parse as parse
+from json import loads	
 from CoreConsole import *
+
+if sys.version_info[0] >= 3:
+	from avro.io import Validate as validate
+	from avro.schema import Parse as parse
+else:
+	from avro.io import validate
+	from avro.schema import parse
 
 class Error(Exception):
     """Base class for exceptions in this module."""

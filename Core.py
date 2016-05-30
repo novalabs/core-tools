@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
