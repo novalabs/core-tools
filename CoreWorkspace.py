@@ -312,11 +312,11 @@ if CMAKE_MODULE_PATH is None:
     sys.exit(-1)
 
 
-def cmakeCommand(chip, source, workspaceRoot = NOVA_WORKSPACE_ROOT):
+def cmakeCommand(chip, source, buildType, workspaceRoot = NOVA_WORKSPACE_ROOT):
     cmake_cmd = "cmake --verbose"
     cmake_cmd += " -DSTM32_CHIP=" + chip
     cmake_cmd += " -DCMAKE_TOOLCHAIN_FILE=" + CMAKE_PREFIX_PATH + "/gcc_stm32.cmake"
-    cmake_cmd += " -DCMAKE_BUILD_TYPE=Debug"
+    cmake_cmd += " -DCMAKE_BUILD_TYPE=" + buildType
     cmake_cmd += " -DTOOLCHAIN_PREFIX=" + NOVA_CORE_TOOLCHAIN
     cmake_cmd += " -DCMAKE_MODULE_PATH=" + CMAKE_MODULE_PATH
     cmake_cmd += " -DCHIBIOS_ROOT="+NOVA_CHIBIOS_ROOT
@@ -369,6 +369,10 @@ def module_completer(prefix, parsed_args, **kwargs):
         if coreRoot is not None:
             mm = listDirectories(os.path.join(coreRoot, "modules"))  # TODO ...
             return (m for m in mm if m.startswith(prefix))
+
+def build_type_completer(prefix, parsed_args, **kwargs):
+    mm = ["debug", "release"]
+    return (m for m in mm if m.startswith(prefix))
 
 
 def ls(srcPath, verbose):
@@ -443,7 +447,7 @@ def ls(srcPath, verbose):
         return -1
 
 
-def generate(srcPath, dstPath, force, verbose):
+def generate(srcPath, dstPath, buildType, force, verbose):
     if not verbose:
         CoreConsole.debug = False
         CoreConsole.verbose = False
@@ -585,7 +589,10 @@ def generate(srcPath, dstPath, force, verbose):
                 executeCmake = False
                 isOk = False
 
-        dest = os.path.join(workspace.getBuildPath(), m.name)
+        dest = os.path.join(workspace.getBuildPath(), buildType)
+        if not os.path.isdir(dest):
+            os.mkdir(dest)
+        dest = os.path.join(workspace.getBuildPath(), buildType, m.name)
         if not os.path.isdir(dest):
             os.mkdir(dest)
 
@@ -593,7 +600,7 @@ def generate(srcPath, dstPath, force, verbose):
         if executeCmake:
             (source, dummy) = os.path.split(m.source)
 
-            cmake_cmd = cmakeCommand(cm.chip, source, workspace.getRoot())
+            cmake_cmd = cmakeCommand(cm.chip, source, buildType, workspace.getRoot())
 
             try:
                 CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
@@ -665,6 +672,9 @@ def initialize(force, verbose):
         mkdir(os.path.join(root, "generated", "modules"))
         mkdir(os.path.join(root, "generated", "packages"))
         mkdir(os.path.join(root, "build"))
+        mkdir(os.path.join(root, "build", "debug"))
+        mkdir(os.path.join(root, "build", "release"))
+
 
         CoreConsole.out("Workspace initialized.")
         CoreConsole.out("You can now do a 'source setup.sh'")
@@ -750,6 +760,7 @@ if '__main__' == __name__:
         parser_ls = subparsers.add_parser('ls', help='Lists the Module')
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
+        parser_gen.add_argument("build_type", nargs=1, help="Build type [default = debug]", default="debug").completer = build_type_completer
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
@@ -792,8 +803,9 @@ if '__main__' == __name__:
 
         if args.action == "generate":
             force = args.force
+            buildType = args.build_type[0]
 
-            retval = generate(None, None, force, verbose)
+            retval = generate(None, None, buildType, force, verbose)
 
         if args.action == "target":
             if args.target_action == "add":
