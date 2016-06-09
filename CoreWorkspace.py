@@ -6,6 +6,9 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
+import argparse
+import argcomplete
+
 import subprocess
 
 from Core import *
@@ -752,13 +755,17 @@ if '__main__' == __name__:
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
         parser_init.add_argument("--force", help="Re-Initialize [default = False]", action="store_true", default=False)
 
-        parser_target = subparsers.add_parser('module', help='Workspace Targets management')
+        parser_target = subparsers.add_parser('target', help='Workspace Targets management')
 
         subparsers_target = parser_target.add_subparsers(help='Sub command help', dest='target_action')
 
         parser_target_add = subparsers_target.add_parser('add', help='Add a target to the workspace')
 
         parser_target_add.add_argument("core_module", nargs=1, help="Module [default = None]", default=None).completer = module_completer
+        parser_target_add.add_argument("name", nargs=1, help="Target name [default = None]", default=None)
+
+        parser_target_add = subparsers_target.add_parser('rm', help='Remove a target to the workspace')
+
         parser_target_add.add_argument("name", nargs=1, help="Target name [default = None]", default=None)
 
         argcomplete.autocomplete(parser)
@@ -788,11 +795,14 @@ if '__main__' == __name__:
 
             retval = generate(None, None, force, verbose)
 
-        if args.action == "module":
-            module_name = args.core_module[0]
-            targetName = args.name[0]
+        if args.action == "target":
+            if args.target_action == "add":
+                module_name = args.core_module[0]
+                targetName = args.name[0]
 
-            retval = target_add(module_name, targetName)
+                retval = target_add(module_name, targetName)
+            elif args.target_action == "rm":
+                CoreConsole.out("Would you like to have this command implemented? Let me know!")
 
         sys.exit(retval)
 
