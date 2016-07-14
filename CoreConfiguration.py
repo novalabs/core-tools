@@ -4,7 +4,7 @@
 # subject to the License Agreement located in the file LICENSE.
 
 from CoreUtils import *
-
+import zlib
 
 class CoreConfiguration:
     schema = '{ "type": "record", "name": "CoreConfiguration", "namespace" : "", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "fields", "type": { "type": "array", "items": { "type": "record", "name": "CoreConfigurationParameter", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "type", "type": { "type": "enum", "name": "CoreConfigurationParameterDataType", "symbols": [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64" ] } }, { "name": "size", "type": "int", "default": 1 } ] } } } ] }'
@@ -23,6 +23,8 @@ class CoreConfiguration:
         self.destination = ""
 
         self.buffer = []
+        self.signature = 0xffffffff
+        self.signatureBuffer = []
 
         self.valid = False
         self.generated = False
@@ -111,14 +113,19 @@ class CoreConfiguration:
 
     def process(self):
         self.buffer = []
+        self.signatureBuffer = []
         if self.valid:
             self.__processPreamble()
             self.__processNamsepaceBegin()
             self.__processConfigurationBegin()
             self.__processFields()
+
+            self.__updateSignature()
+
             self.__processMapBegin()
             self.__processMapFields()
             self.__processMapEnd()
+            self.__processConfigurationSignature()
             self.__processConfigurationEnd()
             self.__processNamsepaceEnd()
 
@@ -132,15 +139,23 @@ class CoreConfiguration:
         namespace = self.namespace
         for ns in namespace.split('::'):
             self.buffer.append('namespace ' + ns + ' {')
+            self.signatureBuffer.append(ns)
         self.buffer.append('')
 
     def __processConfigurationBegin(self):
         self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.data['name'] + ') //' + self.data['description'])
+        self.signatureBuffer.append(self.data['name'])
+
+    def __updateSignature(self):
+        self.signature = hex(zlib.crc32(b':'.join(self.signatureBuffer)) & 0xffffffff)
 
     def __processFields(self):
         fields = self.data['fields']
         for field in fields:
             self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
+            self.signatureBuffer.append(field['name'])
+            self.signatureBuffer.append(field['type'])
+            self.signatureBuffer.append(str(field['size']))
 
     def __processMapBegin(self):
         fields = self.data['fields']
@@ -153,6 +168,9 @@ class CoreConfiguration:
 
     def __processMapEnd(self):
         self.buffer.append('CORE_CONFIGURATION_MAP_END()')
+
+    def __processConfigurationSignature(self):
+        self.buffer.append('CORE_CONFIGURATION_SIGNATURE(' + str(self.signature) + ')')
 
     def __processConfigurationEnd(self):
         self.buffer.append('CORE_CONFIGURATION_END()')
