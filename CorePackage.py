@@ -9,6 +9,7 @@
 import argparse
 import argcomplete
 
+import CoreConsole
 from CoreConfiguration import *
 from CoreMessage import *
 from CoreNode import *
@@ -34,6 +35,7 @@ class CorePackage:
 
         self.sources = []
         self.includes = []
+        self.link = False
 
         self.cmake = ""
         self.cmakePathPrefix = None
@@ -103,9 +105,10 @@ class CorePackage:
 
         return self.root
 
-    def generate(self, path, cmakePathPrefix = None):
+    def generate(self, path, cmakePathPrefix = None, link = False):
         self.cmakePathPrefix = cmakePathPrefix
         self.generated = False
+        self.link = link
 
         try:
             if self.valid:
@@ -146,7 +149,7 @@ class CorePackage:
             if not os.path.isdir(dstIncludes):
                 os.makedirs(dstIncludes)
             for file in self.includes:
-                copyOrLink(os.path.join(srcIncludes, file), os.path.join(dstIncludes, file))
+                copyOrLink(os.path.join(srcIncludes, file), os.path.join(dstIncludes, file), link=self.link)
 
         srcSources = os.path.join(self.packageRoot, "src")
         dstSources = os.path.join(self.destination, "src")
@@ -156,7 +159,7 @@ class CorePackage:
             if not os.path.isdir(dstSources):
                 os.makedirs(dstSources)
             for file in self.sources:
-                copyOrLink(os.path.join(srcSources, file), os.path.join(dstSources, file))
+                copyOrLink(os.path.join(srcSources, file), os.path.join(dstSources, file), link=self.link)
 
         self.processCMake()
 
@@ -217,6 +220,9 @@ class CorePackage:
                 dst = os.path.relpath(self.destination, relpathDst)
             else:
                 dst = self.destination
+
+            if self.link:
+                dst = dst + CoreConsole.highlight(" [LINKS]")
 
             if self.generated:
                 return [CoreConsole.highlight(self.name), self.description, src, dst]
@@ -379,7 +385,7 @@ def ls(srcPath, verbose):
         return -1
 
 
-def generate(srcPath, dstPath, workspaceMode, verbose):
+def generate(srcPath, dstPath, workspaceMode, verbose, link=False):
     if not verbose:
         CoreConsole.debug = False
         CoreConsole.verbose = False
@@ -392,9 +398,9 @@ def generate(srcPath, dstPath, workspaceMode, verbose):
     targetPath = dstPath
 
     if workspaceMode:
-        package.generate(targetPath, "${WORKSPACE_PACKAGES_PATH}")
+        package.generate(targetPath, "${WORKSPACE_PACKAGES_PATH}", link=link)
     else:
-        package.generate(targetPath)
+        package.generate(targetPath, link=link)
 
     table = [package.getSummaryGenerate()]
 
@@ -460,6 +466,7 @@ if '__main__' == __name__:
         parser_ls.add_argument("package", nargs='?', help="Package [default = None]", default=None).completer = package_completer
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Module sources and CMake files')
+        parser_gen.add_argument("--link", help="Link instead of copy source files [default = False]", action="store_true", default=False)
         parser_gen.add_argument("package", nargs='?', help="Package [default = None]", default=None).completer = package_completer
         parser_gen.add_argument("destination", nargs='?', help="Path to destination [default = None]", default=None)
 
@@ -512,7 +519,7 @@ if '__main__' == __name__:
                 if dst is None:
                     dst = os.path.join(coreWorkspace, "generated", "packages")
 
-            retval = generate(src, dst, workspaceMode, verbose)
+            retval = generate(src, dst, workspaceMode, verbose, args.link)
 
         sys.exit(retval)
 

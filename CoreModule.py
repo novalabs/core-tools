@@ -18,25 +18,34 @@ class CoreModule:
     schema = '{ "type": "record", "name": "CoreModule", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "chip", "type": "string" }, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "chibios_components", "type": { "type": "array", "items": "string" } } ] }'
 
     def __init__(self):
-        self.data = []
         self.filename = ""
         self.root = None
         self.moduleRoot = ""
         self.source = ""
+
+        self.data = []
+
         self.name = ""
         self.description = ""
         self.chip = ""
+
         self.destination = ""
-        self.valid = False
-        self.reason = ""
+
         self.buffer = []
+
         self.sources = []
         self.includes = []
+        self.link = False
+
         self.cmake = ""
         self.cmakePathPrefix = None
+
+        self.valid = False
+        self.generated = False
+        self.reason = ""
+
         self.requiredPackages = []
         self.chibiosComponents = []
-        self.generated = False
 
     def openJSON(self, jsonFile):
         CoreConsole.info("CORE_MODULE: " + CoreConsole.highlightFilename(jsonFile))
@@ -103,9 +112,10 @@ class CoreModule:
             CoreConsole.fail("CoreModule::open: " + self.reason)
             return False
 
-    def generate(self, path, cmakePathPrefix=None):
+    def generate(self, path, cmakePathPrefix=None, link = False):
         self.cmakePathPrefix = cmakePathPrefix
         self.generated = False
+        self.link = link
 
         try:
             if (self.valid):
@@ -142,7 +152,7 @@ class CoreModule:
             if not os.path.isdir(dstIncludes):
                 os.makedirs(dstIncludes)
             for file in self.includes:
-                copyOrLink(os.path.join(srcIncludes, file), os.path.join(dstIncludes, file))
+                copyOrLink(os.path.join(srcIncludes, file), os.path.join(dstIncludes, file), link=self.link)
 
         srcSources = os.path.join(self.moduleRoot, "src")
         dstSources = os.path.join(self.destination, "src")
@@ -152,7 +162,7 @@ class CoreModule:
             if not os.path.isdir(dstSources):
                 os.makedirs(dstSources)
             for file in self.sources:
-                copyOrLink(os.path.join(srcSources, file), os.path.join(dstSources, file))
+                copyOrLink(os.path.join(srcSources, file), os.path.join(dstSources, file), link=self.link)
 
         srcMisc = os.path.join(self.moduleRoot, "misc")
         dstMisc = os.path.join(self.destination, "misc")
@@ -162,7 +172,7 @@ class CoreModule:
             if not os.path.isdir(dstMisc):
                 os.makedirs(dstMisc)
             for file in misc:
-                copyOrLink(os.path.join(srcMisc, file), os.path.join(dstMisc, file))
+                copyOrLink(os.path.join(srcMisc, file), os.path.join(dstMisc, file), link=self.link)
 
         self.__processCMake()
 
@@ -234,6 +244,9 @@ class CoreModule:
             else:
                 dst = self.destination
 
+            if self.link:
+                dst = dst + CoreConsole.highlight(" [LINKS]")
+
             if self.generated:
                 return [CoreConsole.highlight(self.name), self.description, self.chip, src, dst]
             else:
@@ -290,16 +303,17 @@ def ls(srcPath, workspaceMode, verbose):
         return -1
 
 
-def generate(srcPath, dstPath, workspaceMode, verbose):
+def generate(srcPath, dstPath, workspaceMode, verbose, link=False):
     if not verbose:
         CoreConsole.debug = False
         CoreConsole.verbose = False
 
-    p = CoreModule()
-    p.open(srcPath)
+    module = CoreModule()
+    module.open(srcPath)
 
-    if not p.valid:
-        return -101
+    if not module.valid:
+        printSuccessOrFailure(False)
+        return -1
 
     isOk = True
 
@@ -308,11 +322,11 @@ def generate(srcPath, dstPath, workspaceMode, verbose):
     targetPath = dstPath
 
     if workspaceMode:
-        isOk = p.generate(targetPath, "${WORKSPACE_MODULES_PATH}")
+        isOk = module.generate(targetPath, "${WORKSPACE_MODULES_PATH}", link=link)
     else:
-        isOk = p.generate(targetPath)
+        isOk = module.generate(targetPath, link=link)
 
-    table = [p.getSummaryGenerate(p.root)]
+    table = [module.getSummaryGenerate(module.root)]
     CoreConsole.out(CoreConsole.h1("MODULE"))
     CoreConsole.out(CoreConsole.table(table, CoreModule.getSummaryFieldsGenerate()))
 
@@ -335,6 +349,7 @@ if '__main__' == __name__:
         parser_ls.add_argument("module", nargs='?', help="Package [default = None]", default=None).completer = module_completer
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Module sources and CMake files')
+        parser_gen.add_argument("--link", help="Link instead of copy source files [default = False]", action="store_true", default=False)
         parser_gen.add_argument("module", nargs='?', help="Package [default = None]", default=None).completer = module_completer
         parser_gen.add_argument("destination", nargs='?', help="Path to destination [default = None]", default=None).completer = module_completer
 
@@ -376,9 +391,9 @@ if '__main__' == __name__:
                 sys.exit(-100)
 
             if dst is None:
-                dst = os.path.join(coreWorkspace, "Generated", "modules")
+                dst = os.path.join(coreWorkspace, "generated", "modules")
 
-            retval = generate(src, dst, args.no_workspace, args.verbose)
+            retval = generate(src, dst, args.no_workspace, args.verbose, args.link)
 
         if args.action == "clean":
             CoreConsole.out(Fore.LIGHTCYAN_EX + "Todo ;-)" + Fore.RESET)
