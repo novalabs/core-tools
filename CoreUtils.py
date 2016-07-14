@@ -137,13 +137,11 @@ def findFileGoingUp(filename, cwd = None):
     return root
 
 
-def copyOrLink(src, dst, rm = True):
-    link = os.environ.get("NOVA_CORE_LINKS_NOT_COPIES")
+def copyOrLink(src, dst, rm = True, link = False):
+    env_link = os.environ.get("NOVA_CORE_LINKS_NOT_COPIES")
 
-    if link is not None:
+    if env_link is not None: # Ok, it is defined. It overrides the parameter
         link = True
-    else:
-        link = False
 
     if link:
         if os.path.islink(dst):
