@@ -486,7 +486,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
     table = []
     for x in workspace.packagesCoreDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Core Package dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generatePackage(os.path.join(workspace.core.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose)
+        res = generatePackage(os.path.join(workspace.core.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose, False)
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -494,7 +494,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
 
     for x in workspace.packagesWorkspaceDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Workspace Package dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generatePackage(os.path.join(workspace.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose)
+        res = generatePackage(os.path.join(workspace.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose, True)
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -507,7 +507,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
 
     for x in workspace.modulesCoreDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Core Module dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generateModule(os.path.join(workspace.core.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose)
+        res = generateModule(os.path.join(workspace.core.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose, False)
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -515,7 +515,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
 
     for x in workspace.modulesWorkspaceDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Workspace Module dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generateModule(os.path.join(workspace.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose)
+        res = generateModule(os.path.join(workspace.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose, True)
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
