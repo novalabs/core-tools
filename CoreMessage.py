@@ -42,6 +42,9 @@ class CoreMessage:
                     if self.package is not None:
                         self.namespace = self.package.name
 
+                if self.package is not None:
+                    self.namespace = self.package.provider + "::" + self.namespace
+
                 self.valid = True
             else:
                 raise CoreError("Message filename/name mismatch", jsonFile)
@@ -79,7 +82,7 @@ class CoreMessage:
                     raise CoreError("'out' file is empty")
                 try:
                     if self.package is not None:
-                        path = os.path.join(path, self.package.name, "include", self.package.name)
+                        path = os.path.join(path, self.package.name, "include", self.package.provider, self.package.name)
                     else:
                         path = path
 
@@ -122,7 +125,7 @@ class CoreMessage:
     def __processPreamble(self):
         self.buffer.append('#pragma once')
         self.buffer.append('')
-        self.buffer.append('#include <Core/MW/CoreMessage.hpp>')
+        self.buffer.append('#include <core/mw/CoreMessage.hpp>')
         self.buffer.append('')
 
     def __processNamsepaceBegin(self):
@@ -143,7 +146,7 @@ class CoreMessage:
         self.buffer.append('CORE_MESSAGE_END')
 
     def __processNamsepaceEnd(self):
-        namespace = self.data['namespace']
+        namespace = self.namespace
         self.buffer.append('')
         for ns in namespace.split('::'):
             self.buffer.append('}')

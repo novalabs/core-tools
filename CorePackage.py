@@ -16,7 +16,7 @@ from CoreNode import *
 
 
 class CorePackage:
-    schema = '{ "type": "record", "name": "CorePackage", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" } ] }'
+    schema = '{ "type": "record", "name": "CorePackage", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "provider", "type": "string" } ] }'
 
     def __init__(self):
         self.filename = ""
@@ -28,6 +28,7 @@ class CorePackage:
 
         self.name = ""
         self.description = ""
+        self.provider = ""
 
         self.destination = None
 
@@ -54,6 +55,7 @@ class CorePackage:
                 self.source = jsonFile
                 self.name = self.data["name"]
                 self.description = self.data["description"]
+                self.provider = self.data["provider"]
 
                 self.valid = True
             else:
@@ -142,7 +144,7 @@ class CorePackage:
 
     def process(self):
         srcIncludes = os.path.join(self.packageRoot, "include")
-        dstIncludes = os.path.join(self.destination, "include", self.name)
+        dstIncludes = os.path.join(self.destination, "include", self.provider, self.name)
 
         self.includes = listFiles(srcIncludes)
         if len(self.includes) > 0:
@@ -199,15 +201,15 @@ class CorePackage:
     def getSummary(self, relpath = None):
         if self.valid:
             if relpath is not None:
-                return [CoreConsole.highlight(self.name), self.description, os.path.relpath(self.packageRoot, relpath)]
+                return [CoreConsole.highlight(self.name), self.description, self.provider, os.path.relpath(self.packageRoot, relpath)]
             else:
-                return [CoreConsole.highlight(self.name), self.description, self.packageRoot]
+                return [CoreConsole.highlight(self.name), self.description, self.provider, self.packageRoot]
         else:
             return ["", CoreConsole.error(self.reason), ""]
 
     @staticmethod
     def getSummaryFields():
-        return ["Name", "Description", "Root"]
+        return ["Name", "Description", "Provider", "Root"]
 
     def getSummaryGenerate(self, relpathSrc = None, relpathDst = None):
         if self.valid:
@@ -225,15 +227,15 @@ class CorePackage:
                 dst = dst + CoreConsole.highlight(" [LINKS]")
 
             if self.generated:
-                return [CoreConsole.highlight(self.name), self.description, src, dst]
+                return [CoreConsole.highlight(self.name), self.description, self.provider, src, dst]
             else:
-                return [CoreConsole.highlight(self.name), self.description, src, CoreConsole.error(self.reason)]
+                return [CoreConsole.highlight(self.name), self.description, self.provider, src, CoreConsole.error(self.reason)]
         else:
-            return ["", CoreConsole.error(self.reason), "", ""]
+            return ["", CoreConsole.error(self.reason), "", "", ""]
 
     @staticmethod
     def getSummaryFieldsGenerate():
-        return ["Name", "Description", "Root", "Generate"]
+        return ["Name", "Description", "Provider", "Root", "Generate"]
 
     def listMessageFiles(self):
         if not self.valid:

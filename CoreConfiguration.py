@@ -44,6 +44,9 @@ class CoreConfiguration:
                     if self.package is not None:
                         self.namespace = self.package.name
 
+                if self.package is not None:
+                    self.namespace = self.package.provider + "::" + self.namespace
+
                 self.valid = True
             else:
                 raise CoreError("Configuration filename/name mismatch", jsonFile)
@@ -81,7 +84,7 @@ class CoreConfiguration:
                     raise CoreError("'out' file is empty")
                 try:
                     if self.package is not None:
-                        path = os.path.join(path, self.package.name, "include", self.package.name)
+                        path = os.path.join(path, self.package.name, "include", self.package.provider, self.package.name)
                     else:
                         path = path
 
@@ -132,7 +135,7 @@ class CoreConfiguration:
     def __processPreamble(self):
         self.buffer.append('#pragma once')
         self.buffer.append('')
-        self.buffer.append('#include <Core/MW/CoreConfiguration.hpp>')
+        self.buffer.append('#include <core/mw/CoreConfiguration.hpp>')
         self.buffer.append('')
 
     def __processNamsepaceBegin(self):
@@ -176,7 +179,7 @@ class CoreConfiguration:
         self.buffer.append('CORE_CONFIGURATION_END()')
 
     def __processNamsepaceEnd(self):
-        namespace = self.data['namespace']
+        namespace = self.namespace
         self.buffer.append('')
         for ns in namespace.split('::'):
             self.buffer.append('}')
