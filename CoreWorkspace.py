@@ -760,7 +760,7 @@ if '__main__' == __name__:
         parser_ls = subparsers.add_parser('ls', help='Lists the Module')
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
-        parser_gen.add_argument("build_type", nargs=1, help="Build type [default = debug]", default="debug").completer = build_type_completer
+        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
@@ -803,7 +803,9 @@ if '__main__' == __name__:
 
         if args.action == "generate":
             force = args.force
-            buildType = args.build_type[0]
+            buildType = args.build_type
+            if buildType is None:
+                buildType = 'debug'
 
             retval = generate(None, None, buildType, force, verbose)
 
