@@ -8,7 +8,6 @@ import git
 from CoreUtils import *
 import sys
 
-
 class CoreBootstrap:
     schema = '{ "name": "CoreRepos", "type": "record", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "core", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "packages", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposPackageP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "modules", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposModuleP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } } ] }'
     REMOTE_URL = "https://github.com/novalabs/core-repos.git"
@@ -51,22 +50,27 @@ class CoreBootstrap:
         try:
             dst = os.path.join(self.getCoreRoot(), path)
 
-            if os.path.isdir(dst):
-                shutil.rmtree(dst)
+            if os.path.exists(dst):
+                repo = git.Repo(dst)
+                repo
+                if repo.is_dirty(untracked_files=True):
+                    return 'dirty'
+                else:
+                    origin = repo.remotes.origin
+                    origin.fetch()
+                    repo.heads[branch].checkout()
+                    origin.pull(branch)
+                    return 'updated'
             else:
-                pass
-
-            os.makedirs(dst)
-            repo = git.Repo.init(dst)
-            origin = repo.create_remote('origin', url)
-            origin.fetch()
-            repo.git.checkout('origin/' + branch, b=branch)
-
-            return True
-
+                os.makedirs(dst)
+                repo = git.Repo.init(dst)
+                origin = repo.create_remote('origin', url)
+                origin.fetch()
+                repo.git.checkout('origin/' + branch, b=branch)
+                return 'fetched'
         except Exception as e:
             self.reason = str(e)
-            return False
+            return 'fail'
 
     def fetchRepos(self, url = None):
         try:
@@ -185,8 +189,13 @@ if '__main__' == __name__:
             CoreConsole.out("Fetching CORE")
             for tmp in bootstrapper.getCore():
                 printElement(tmp)
-                if bootstrapper.fetchRepo(tmp["url"], tmp["branch"], tmp["name"]):
+                success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], tmp["name"])
+                if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                if success == 'updated':
+                    CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
+                elif success == 'dirty':
+                    CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
                 else:
                     CoreConsole.out(CoreConsole.error(bootstrapper.reason))
                     failure = True
@@ -196,8 +205,13 @@ if '__main__' == __name__:
             CoreConsole.out("Fetching MODULES")
             for tmp in bootstrapper.getModules():
                 printElement(tmp)
-                if bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("modules", tmp["name"])):
+                success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("modules", tmp["name"]))
+                if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                if success == 'updated':
+                    CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
+                elif success == 'dirty':
+                    CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
                 else:
                     CoreConsole.out(CoreConsole.error(bootstrapper.reason))
                     failure = True
@@ -207,8 +221,13 @@ if '__main__' == __name__:
             CoreConsole.out("Fetching PACKAGES")
             for tmp in bootstrapper.getPackages():
                 printElement(tmp)
-                if bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("packages", tmp["name"])):
+                success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("packages", tmp["name"]))
+                if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                if success == 'updated':
+                    CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
+                elif success == 'dirty':
+                    CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
                 else:
                     CoreConsole.out(CoreConsole.error(bootstrapper.reason))
                     failure = True
