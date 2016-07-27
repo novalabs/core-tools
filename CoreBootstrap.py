@@ -192,7 +192,7 @@ if '__main__' == __name__:
                 success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], tmp["name"])
                 if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
-                if success == 'updated':
+                elif success == 'updated':
                     CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
                 elif success == 'dirty':
                     CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
@@ -208,7 +208,7 @@ if '__main__' == __name__:
                 success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("modules", tmp["name"]))
                 if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
-                if success == 'updated':
+                elif success == 'updated':
                     CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
                 elif success == 'dirty':
                     CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
@@ -224,7 +224,7 @@ if '__main__' == __name__:
                 success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("packages", tmp["name"]))
                 if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
-                if success == 'updated':
+                elif success == 'updated':
                     CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
                 elif success == 'dirty':
                     CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
