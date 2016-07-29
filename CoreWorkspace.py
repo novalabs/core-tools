@@ -561,24 +561,31 @@ def generate(srcPath, dstPath, buildType, force, verbose):
         moduleSrc = os.path.join(workspace.getGeneratedPath(), "modules", cm.name)
         moduleDst = os.path.join(t, "modules", cm.name)
         CoreConsole.info("Eclipse link: " + moduleSrc + " > " + moduleDst)
-        if os.path.exists(moduleDst):
-            os.unlink(moduleDst)
+
+        if os.path.islink(moduleDst):
+            os.remove(moduleDst)
+
+        print "%s -> %s" %(moduleSrc, moduleDst)
         os.symlink(moduleSrc, moduleDst)  # Make links for Eclipse
 
         for package in m.requiredPackages:  # Link the target required packages
             packageSrc = os.path.join(workspace.getGeneratedPath(), "packages", package)
             packageDst = os.path.join(t, "packages", package)
             CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
-            if os.path.exists(packageDst):
-                os.unlink(packageDst)
+
+            if os.path.islink(moduleDst):
+                os.remove(packageDst)
+
             os.symlink(packageSrc, packageDst)  # Make links for Eclipse
 
         for package in cm.requiredPackages:  # Link the module required packages
             packageSrc = os.path.join(workspace.getGeneratedPath(), "packages", package)
             packageDst = os.path.join(t, "packages", package)
             CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
-            if os.path.exists(packageDst):
-                os.unlink(packageDst)
+
+            if os.path.islink(packageDst):
+                os.remove(packageDst)
+            
             os.symlink(packageSrc, packageDst)  # Make links for Eclipse
 # ECLIPSE WORKAROUND END
 
