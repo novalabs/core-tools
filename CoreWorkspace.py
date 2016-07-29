@@ -562,7 +562,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
         moduleDst = os.path.join(t, "modules", cm.name)
         CoreConsole.info("Eclipse link: " + moduleSrc + " > " + moduleDst)
 
-        if os.path.islink(moduleDst):
+        if os.path.exists(moduleDst) and os.path.islink(moduleDst):
             os.remove(moduleDst)
 
         print "%s -> %s" %(moduleSrc, moduleDst)
@@ -573,7 +573,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
             packageDst = os.path.join(t, "packages", package)
             CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
 
-            if os.path.islink(moduleDst):
+            if os.path.exists(packageDst) and os.path.islink(packageDst):
                 os.remove(packageDst)
 
             os.symlink(packageSrc, packageDst)  # Make links for Eclipse
@@ -583,7 +583,7 @@ def generate(srcPath, dstPath, buildType, force, verbose):
             packageDst = os.path.join(t, "packages", package)
             CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
 
-            if os.path.islink(packageDst):
+            if os.path.exists(packageDst) and os.path.islink(packageDst):
                 os.remove(packageDst)
             
             os.symlink(packageSrc, packageDst)  # Make links for Eclipse
