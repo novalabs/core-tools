@@ -59,7 +59,7 @@ class CoreWorkspace(CoreContainer):
     def getSourcesPath(self):
         if self.sources is None:  # Check for cached value
             if self.getRoot() is not None:
-                tmp = os.path.join(self.root, "sources")
+                tmp = os.path.join(self.root, "src")
                 if os.path.isdir(tmp):
                     self.sources = tmp
                 else:
@@ -447,7 +447,7 @@ def ls(srcPath, verbose):
         return -1
 
 
-def generate(srcPath, dstPath, buildType, force, verbose):
+def generate(srcPath, dstPath, buildTypes, force, verbose):
     if not verbose:
         CoreConsole.debug = False
         CoreConsole.verbose = False
@@ -529,14 +529,14 @@ def generate(srcPath, dstPath, buildType, force, verbose):
 # --- NOW THE TARGETS ---------------------------------------------------------
 
     for m in workspace.validModuleTargets:
-        t = os.path.join(workspace.getSourcesPath(), "targets", m.name)
+        target_root = os.path.join(workspace.getSourcesPath(), "targets", m.name)
 
         mustGenerate = True
         exists = False
         grepped = False
 
-        if os.path.isdir(t):
-            t2 = os.path.join(t, "CMakeLists.txt")
+        if os.path.isdir(target_root):
+            t2 = os.path.join(target_root, "CMakeLists.txt")
             if os.path.isfile(t2):
                 exists = True
                 for line in open(t2):
@@ -552,89 +552,136 @@ def generate(srcPath, dstPath, buildType, force, verbose):
             cm = workspace.getModuleByName(m.module)
 
 # ECLIPSE WORKAROUND BEGIN
-        if not os.path.isdir(os.path.join(t, "modules")):
-            os.mkdir(os.path.join(t, "modules"))
+        eclipse_workaround = os.environ.get("NOVA_CORE_ECLIPSE_LINK_FILES")
 
-        if not os.path.isdir(os.path.join(t, "packages")):
-            os.mkdir(os.path.join(t, "packages"))
+        if eclipse_workaround is not None:
+            if not os.path.isdir(os.path.join(target_root, "modules")):
+                os.mkdir(os.path.join(target_root, "modules"))
 
-        moduleSrc = os.path.join(workspace.getGeneratedPath(), "modules", cm.name)
-        moduleDst = os.path.join(t, "modules", cm.name)
-        CoreConsole.info("Eclipse link: " + moduleSrc + " > " + moduleDst)
+            if not os.path.isdir(os.path.join(target_root, "packages")):
+                os.mkdir(os.path.join(target_root, "packages"))
 
-        if os.path.exists(moduleDst) and os.path.islink(moduleDst):
-            os.remove(moduleDst)
+            moduleSrc = os.path.join(workspace.getGeneratedPath(), "modules", cm.name)
+            moduleDst = os.path.join(target_root, "modules", cm.name)
+            CoreConsole.info("Eclipse link: " + moduleSrc + " > " + moduleDst)
 
-        print "%s -> %s" %(moduleSrc, moduleDst)
-        os.symlink(moduleSrc, moduleDst)  # Make links for Eclipse
+            if os.path.exists(moduleDst) and os.path.islink(moduleDst):
+                os.remove(moduleDst)
 
-        for package in m.requiredPackages:  # Link the target required packages
-            packageSrc = os.path.join(workspace.getGeneratedPath(), "packages", package)
-            packageDst = os.path.join(t, "packages", package)
-            CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
+            print "%s -> %s" %(moduleSrc, moduleDst)
+            os.symlink(moduleSrc, moduleDst)  # Make links for Eclipse
 
-            if os.path.exists(packageDst) and os.path.islink(packageDst):
-                os.remove(packageDst)
+            for package in m.requiredPackages:  # Link the target required packages
+                packageSrc = os.path.join(workspace.getGeneratedPath(), "packages", package)
+                packageDst = os.path.join(target_root, "packages", package)
+                CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
 
-            os.symlink(packageSrc, packageDst)  # Make links for Eclipse
+                if os.path.exists(packageDst) and os.path.islink(packageDst):
+                    os.remove(packageDst)
 
-        for package in cm.requiredPackages:  # Link the module required packages
-            packageSrc = os.path.join(workspace.getGeneratedPath(), "packages", package)
-            packageDst = os.path.join(t, "packages", package)
-            CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
+                os.symlink(packageSrc, packageDst)  # Make links for Eclipse
 
-            if os.path.exists(packageDst) and os.path.islink(packageDst):
-                os.remove(packageDst)
-            
-            os.symlink(packageSrc, packageDst)  # Make links for Eclipse
+            for package in cm.requiredPackages:  # Link the module required packages
+                packageSrc = os.path.join(workspace.getGeneratedPath(), "packages", package)
+                packageDst = os.path.join(target_root, "packages", package)
+                CoreConsole.info("Eclipse link: " + packageSrc + " " + packageDst)
+
+                if os.path.exists(packageDst) and os.path.islink(packageDst):
+                    os.remove(packageDst)
+
+                os.symlink(packageSrc, packageDst)  # Make links for Eclipse
 # ECLIPSE WORKAROUND END
 
         executeCmake = True
         if mustGenerate:
-            m.generate(t)
+            m.generate(target_root)
             if not m.generated:
                 executeCmake = False
                 isOk = False
 
-        dest = os.path.join(workspace.getBuildPath(), buildType)
-        if not os.path.isdir(dest):
-            os.mkdir(dest)
-        dest = os.path.join(workspace.getBuildPath(), buildType, m.name)
-        if not os.path.isdir(dest):
-            os.mkdir(dest)
+        for buildType in buildTypes:
+            dest = os.path.join(workspace.getBuildPath(), buildType)
+            if not os.path.isdir(dest):
+                os.mkdir(dest)
+            dest = os.path.join(workspace.getBuildPath(), buildType, m.name)
+            if not os.path.isdir(dest):
+                os.mkdir(dest)
 
-        cmakeSuccess = True
-        if executeCmake:
-            (source, dummy) = os.path.split(m.source)
+            cmakeSuccess = True
+            if executeCmake:
+                (source, dummy) = os.path.split(m.source)
 
-            cmake_cmd = cmakeCommand(cm.chip, source, buildType, workspace.getRoot())
+                cmake_cmd = cmakeCommand(cm.chip, source, buildType, workspace.getRoot())
 
-            try:
-                CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
+                try:
+                    CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
 
-                out = subprocess.check_output(cmake_cmd, shell=True, cwd=dest)
-                if verbose:
-                    CoreConsole.out(out)
-            except subprocess.CalledProcessError as outException:
-                CoreConsole.out("CMake subprocess failed")
-                cmakeSuccess = False
-                isOk = False
+                    out = subprocess.check_output(cmake_cmd, shell=True, cwd=dest)
+                    if verbose:
+                        CoreConsole.out(out)
+                except subprocess.CalledProcessError as outException:
+                    CoreConsole.out("CMake subprocess failed")
+                    cmakeSuccess = False
+                    isOk = False
 
-        dest = os.path.relpath(dest, workspace.getRoot())
+            dest = os.path.relpath(dest, workspace.getRoot())
 
-        if m.generated:
-            if cmakeSuccess:
-                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, os.path.relpath(m.destination, workspace.getRoot()), dest, "Success"])
+            if m.generated:
+                if cmakeSuccess:
+                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, os.path.relpath(m.destination, workspace.getRoot()), dest, "Success"])
+                else:
+                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, os.path.relpath(m.destination, workspace.getRoot()), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
             else:
-                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, os.path.relpath(m.destination, workspace.getRoot()), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
-        else:
-            table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.reason, dest, ""])
+                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.reason, dest, ""])
+
+                # ----------------------------------------------------------------------------------------------------------------------
+
+        eclipse_template = os.path.join(cm.moduleRoot, "eclipse_template")
+        if os.path.isdir(eclipse_template):
+            if not os.path.exists(os.path.join(target_root, ".project")):
+                src = open(os.path.join(eclipse_template, ".project"))
+                data = src.read()
+                src.close()
+                data = data.replace("@@NAME@@", m.name)
+                sink = open(os.path.join(target_root, ".project"), 'w')
+                sink.write(data)
+                sink.close()
+
+            if not os.path.exists(os.path.join(target_root, ".cproject")):
+                src = open(os.path.join(eclipse_template, ".cproject"))
+                data = src.read()
+                src.close()
+                data = data.replace("@@NAME@@", m.name)
+                data = data.replace("@@NOVA_CORE_ROOT@@", NOVA_CORE_ROOT)
+                sink = open(os.path.join(target_root, ".cproject"), 'w')
+                sink.write(data)
+                sink.close()
+
+            tmp = "@@NAME@@-Debug.launch".replace("@@NAME@@", m.name)
+            if not os.path.exists(os.path.join(target_root, tmp)):
+                src = open(os.path.join(eclipse_template, "@@NAME@@-Debug.launch"))
+                data = src.read()
+                src.close()
+                data = data.replace("@@NAME@@", m.name)
+                sink = open(os.path.join(target_root, tmp), 'w')
+                sink.write(data)
+                sink.close()
+
+            tmp = "@@NAME@@-Release.launch".replace("@@NAME@@", m.name)
+            if not os.path.exists(os.path.join(target_root, tmp)):
+                src = open(os.path.join(eclipse_template, "@@NAME@@-Release.launch"))
+                data = src.read()
+                src.close()
+                data = data.replace("@@NAME@@", m.name)
+                sink = open(os.path.join(target_root, tmp), 'w')
+                sink.write(data)
+                sink.close()
 
     for m in workspace.invalidModuleTargets:
         table.append([CoreConsole.error(m.filename), CoreConsole.error(m.reason), "", "", ""])
 
     if len(table) > 0:
-        CoreConsole.out(CoreConsole.h1("TARGETS"))
+        CoreConsole.out(CoreConsole.h1("GENERATED TARGETS"))
         CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "CoreModule", "Chip", "Output", "Build", "CMake"]))
 
     printSuccessOrFailure(isOk)
@@ -672,9 +719,9 @@ def initialize(force, verbose):
         createSetup(root)
 
         # create directories
-        mkdir(os.path.join(root, "sources"))
-        mkdir(os.path.join(root, "sources", "targets"))
-        mkdir(os.path.join(root, "sources", "packages"))
+        mkdir(os.path.join(root, "src"))
+        mkdir(os.path.join(root, "src", "targets"))
+        mkdir(os.path.join(root, "src", "packages"))
         mkdir(os.path.join(root, "generated"))
         mkdir(os.path.join(root, "generated", "modules"))
         mkdir(os.path.join(root, "generated", "packages"))
@@ -741,15 +788,14 @@ def target_add(module_name, name):
 
 #TODO Add some error handling
 
+#----------------------------------------------------------------------------------------------------------------------
     shutil.copytree(os.path.join(module.moduleRoot, "target_template"), target_root)
 
     src = open(os.path.join(target_root, "MODULE_TARGET.json"))
     json = src.read()
     src.close()
-
     json = json.replace("@@NAME@@", name)
     json = json.replace("@@DESCRIPTION@@", name)
-
     sink = open(os.path.join(target_root, "MODULE_TARGET.json"), 'w')
     sink.write(json)
     sink.close()
@@ -767,7 +813,7 @@ if '__main__' == __name__:
         parser_ls = subparsers.add_parser('ls', help='Lists the Module')
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
-        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
+#        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
@@ -810,11 +856,9 @@ if '__main__' == __name__:
 
         if args.action == "generate":
             force = args.force
-            buildType = args.build_type
-            if buildType is None:
-                buildType = 'debug'
+            buildTypes = ["debug", "release"]
 
-            retval = generate(None, None, buildType, force, verbose)
+            retval = generate(None, None, buildTypes, force, verbose)
 
         if args.action == "target":
             if args.target_action == "add":
