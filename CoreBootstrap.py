@@ -12,7 +12,7 @@ class CoreBootstrap:
     schema = '{ "name": "CoreRepos", "type": "record", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "core", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "packages", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposPackageP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "modules", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposModuleP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } } ] }'
     REMOTE_URL = "https://github.com/novalabs/core-repos.git"
 
-    def __init__(self, path):
+    def __init__(self, corePath):
         self.repos = None
         self.coreRoot = None
         self.source = ""
@@ -32,7 +32,8 @@ class CoreBootstrap:
         self.valid = False
         self.reason = ""
 
-        self.getReposPath(path)
+        self.coreRoot = corePath
+        self.getReposPath()
 
     def getCoreRoot(self, path = ""):
         if self.coreRoot is None:
@@ -127,22 +128,22 @@ class CoreBootstrap:
             return False
 
     def getCore(self):
-        if len(bootstrapper.data["core"]) == 0:
+        if len(self.data["core"]) == 0:
             return None
 
-        return bootstrapper.data["core"]
+        return self.data["core"]
 
     def getModules(self):
-        if len(bootstrapper.data["modules"]) == 0:
+        if len(self.data["modules"]) == 0:
             return None
 
-        return bootstrapper.data["modules"]
+        return self.data["modules"]
 
     def getPackages(self):
-        if len(bootstrapper.data["packages"]) == 0:
+        if len(self.data["packages"]) == 0:
             return None
 
-        return bootstrapper.data["packages"]
+        return self.data["packages"]
 
     def writeSetupSh(self):
         buffer = []
@@ -168,15 +169,9 @@ def printElement(x):
     CoreConsole.out(" |- " + Fore.YELLOW + x["name"] + Fore.RESET + ": " + x["description"])
     CoreConsole.out(" |  " + x["url"] + " [" + x["branch"] + "]")
 
-if '__main__' == __name__:
+def fetch(corePath):
     try:
-        CoreConsole.debug = False
-        CoreConsole.verbose = False
-
-        CoreConsole.out(Fore.MAGENTA + "Bootstrapping Core Distribution" + Fore.RESET)
-        CoreConsole.out("")
-
-        bootstrapper = CoreBootstrap(os.getcwd())
+        bootstrapper = CoreBootstrap(corePath)
 
         if not bootstrapper.fetchRepos():
             raise CoreError(bootstrapper.reason)
@@ -233,10 +228,8 @@ if '__main__' == __name__:
                     failure = True
             CoreConsole.out("")
 
-        printSuccessOrFailure(not failure)
-
         if failure:
-            sys.exit(-1)
+            return False
 
         CoreConsole.out("")
 
@@ -245,13 +238,28 @@ if '__main__' == __name__:
 
         failure = not bootstrapper.writeSetupSh()
 
-        printSuccessOrFailure(not failure)
-
         if failure:
-            sys.exit(-1)
+            return False
 
-        sys.exit(0)
+        return True
 
     except CoreError as e:
         CoreConsole.out(CoreConsole.error(e.value))
+        return False
+
+
+if '__main__' == __name__:
+    CoreConsole.debug = False
+    CoreConsole.verbose = False
+
+    CoreConsole.out(Fore.MAGENTA + "Bootstrapping Core Distribution" + Fore.RESET)
+    CoreConsole.out("")
+
+    isOk = fetch(os.path.join(os.getcwd(), "core"))
+    printSuccessOrFailure(isOk)
+
+    if not isOk:
         sys.exit(-1)
+
+    sys.exit(0)
+

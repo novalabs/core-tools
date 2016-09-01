@@ -7,6 +7,7 @@
 # subject to the License Agreement located in the file LICENSE.
 
 from CoreContainer import *
+from CoreBootstrap import fetch as UpdateCore
 
 
 class Core(CoreContainer):
@@ -153,6 +154,37 @@ def ls(srcPath, verbose):
     else:
         return -1
 
+def update(srcPath, verbose):
+    if not verbose:
+        CoreConsole.debug = False
+        CoreConsole.verbose = False
+
+    core = Core()
+    core.open(srcPath)
+
+    CoreConsole.out(CoreConsole.h1("CORE"))
+
+    table = []
+    if core.valid:
+        table.append([CoreConsole.highlight(core.name), core.description, core.coreRoot])
+        CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "Root"]))
+    else:
+        CoreConsole.out(CoreConsole.error(core.reason))
+
+    if not core.valid:
+        return -1
+
+    isOk = True
+
+    isOk = UpdateCore(core.getRoot())
+
+    printSuccessOrFailure(isOk)
+
+    if isOk:
+        return 0
+    else:
+        return -1
+
 
 if '__main__' == __name__:
     try:
@@ -160,8 +192,11 @@ if '__main__' == __name__:
         parser.add_argument("--verbose", help="Verbose output [default = False]", action="store_true", default=False)
         subparsers = parser.add_subparsers(help='Sub command help', dest='action')
 
-        parser_ls = subparsers.add_parser('ls', help='Lists the Module')
+        parser_ls = subparsers.add_parser('ls', help='Lists the Core distribution contents')
         parser_ls.add_argument("path", nargs='?', help="Path to Core [default = None]", default=None)
+
+        parser_update = subparsers.add_parser('update', help='Update')
+        parser_update.add_argument("path", nargs='?', help="Path to Core [default = None]", default=None)
 
         argcomplete.autocomplete(parser)
         args = parser.parse_args()
@@ -182,6 +217,21 @@ if '__main__' == __name__:
                 src = coreRoot
 
             retval = ls(src, args.verbose)
+
+        if args.action == "update":
+            src = args.path
+
+            if src is not None:
+                if src == ".":
+                    src = None
+            else:
+                coreRoot = os.environ.get("NOVA_CORE_ROOT")
+                if coreRoot is None:
+                    CoreConsole.out("NOVA_CORE_ROOT environment variable not found")
+                    sys.exit(-1)
+                src = coreRoot
+
+            retval = update(src, args.verbose)
 
         sys.exit(retval)
 
