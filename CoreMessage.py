@@ -9,6 +9,8 @@ from CoreUtils import *
 class CoreMessage:
     schema = '{ "type": "record", "name": "CoreMessage", "namespace" : "", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "fields", "type": { "type": "array", "items": { "type": "record", "name": "CoreConfigurationParameter", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "type", "type": { "type": "enum", "name": "CoreConfigurationParameterDataType", "symbols": [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64", "TIMESTAMP" ] } }, { "name": "size", "type": "int", "default": 1 } ] } } } ] }'
 
+    fieldtypeOrder = ["TIMESTAMP", "INT64", "UINT64", "FLOAT64", "INT32", "UINT32", "FLOAT32", "INT16", "UINT16", "CHAR", "INT8", "UINT8"]
+
     def __init__(self):
         self.package = None
         self.filename = ""
@@ -56,7 +58,7 @@ class CoreMessage:
 
         return True
 
-    def open(self, name, package = None):
+    def open(self, name, package=None):
         if package is not None:
             jsonFile = package.getMessageFile(name)
         else:
@@ -139,8 +141,10 @@ class CoreMessage:
 
     def __processFields(self):
         fields = self.data['fields']
-        for field in fields:
-            self.buffer.append('	CORE_MESSAGE_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
+        for fieldType in self.fieldtypeOrder:
+            for field in fields:
+                if fieldType == field['type']:
+                    self.buffer.append('	CORE_MESSAGE_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
 
     def __processMessageEnd(self):
         self.buffer.append('CORE_MESSAGE_END')
@@ -151,7 +155,7 @@ class CoreMessage:
         for ns in namespace.split('::'):
             self.buffer.append('}')
 
-    def getSummary(self, relpath = None):
+    def getSummary(self, relpath=None):
         if self.valid:
             if relpath is not None:
                 return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, os.path.relpath(self.source, relpath)]
@@ -164,7 +168,7 @@ class CoreMessage:
     def getSummaryFields():
         return ["NS", "Name", "Description", "Source"]
 
-    def getSummaryGenerate(self, relpathSrc = None, relpathDst = None):
+    def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
         if self.valid:
             if relpathSrc is not None:
                 src = os.path.relpath(self.source, relpathSrc)
