@@ -6,8 +6,11 @@
 from CoreUtils import *
 import zlib
 
+
 class CoreConfiguration:
     schema = '{ "type": "record", "name": "CoreConfiguration", "namespace" : "", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "fields", "type": { "type": "array", "items": { "type": "record", "name": "CoreConfigurationParameter", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "type", "type": { "type": "enum", "name": "CoreConfigurationParameterDataType", "symbols": [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64" ] } }, { "name": "size", "type": "int", "default": 1 } ] } } } ] }'
+
+    fieldtypeOrder = ["TIMESTAMP", "INT64", "UINT64", "FLOAT64", "INT32", "UINT32", "FLOAT32", "INT16", "UINT16", "CHAR", "INT8", "UINT8"]
 
     def __init__(self):
         self.package = None
@@ -58,7 +61,7 @@ class CoreConfiguration:
 
         return True
 
-    def open(self, name, package = None):
+    def open(self, name, package=None):
         if package is not None:
             jsonFile = package.getConfigurationFile(name)
         else:
@@ -225,11 +228,13 @@ class CoreConfiguration:
 
     def __processFields(self):
         fields = self.data['fields']
-        for field in fields:
-            self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
-            self.signatureBuffer.append(field['name'])
-            self.signatureBuffer.append(field['type'])
-            self.signatureBuffer.append(str(field['size']))
+        for fieldType in self.fieldtypeOrder:
+            for field in fields:
+                if fieldType == field['type']:
+                    self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
+                    self.signatureBuffer.append(field['name'])
+                    self.signatureBuffer.append(field['type'])
+                    self.signatureBuffer.append(str(field['size']))
 
     def __processMapBegin(self):
         name = self.data['name']
@@ -260,7 +265,7 @@ class CoreConfiguration:
             self.buffer.append('}')
         self.buffer.append('')
 
-    def getSummary(self, relpath = None):
+    def getSummary(self, relpath=None):
         if self.valid:
             if relpath is not None:
                 return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, os.path.relpath(self.source, relpath)]
@@ -273,7 +278,7 @@ class CoreConfiguration:
     def getSummaryFields():
         return ["NS", "Name", "Description", "Source"]
 
-    def getSummaryGenerate(self, relpathSrc = None, relpathDst = None):
+    def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
         if self.valid:
             if relpathSrc is not None:
                 src = os.path.relpath(self.source, relpathSrc)

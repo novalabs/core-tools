@@ -7,15 +7,16 @@ import shutil
 import sys
 import os
 
-from json import loads	
+from json import loads
 from CoreConsole import *
 
 if sys.version_info[0] >= 3:
-	from avro.io import Validate as validate
-	from avro.schema import Parse as parse
+    from avro.io import Validate as validate
+    from avro.schema import Parse as parse
 else:
-	from avro.io import validate
-	from avro.schema import parse
+    from avro.io import validate
+    from avro.schema import parse
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -23,7 +24,7 @@ class Error(Exception):
 
 
 class CoreError(Exception):
-    def __init__(self, value, file = None, context = None):
+    def __init__(self, value, file=None, context=None):
         self.value = value
         self.context = context
         self.file = file
@@ -73,7 +74,7 @@ def listFiles(path):
     return tmp
 
 
-def listDirectories(path, fullpath = False):
+def listDirectories(path, fullpath=False):
     tmp = []
 
     if os.path.isdir(path):
@@ -121,7 +122,7 @@ def splitFQN(x):
     return x.split("::")
 
 
-def findFileGoingUp(filename, cwd = None):
+def findFileGoingUp(filename, cwd=None):
     if cwd is None:
         cwd = os.getcwd()
 
@@ -137,10 +138,10 @@ def findFileGoingUp(filename, cwd = None):
     return root
 
 
-def copyOrLink(src, dst, rm = True, link = False):
+def copyOrLink(src, dst, rm=True, link=False):
     env_link = os.environ.get("NOVA_CORE_LINKS_NOT_COPIES")
 
-    if env_link is not None: # Ok, it is defined. It overrides the parameter
+    if env_link is not None:  # Ok, it is defined. It overrides the parameter
         link = True
 
     if link:
@@ -166,8 +167,17 @@ def mkdir(tmp):
         except OSError as e:
             raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
 
+
 def printSuccessOrFailure(success):
     if success:
         CoreConsole.out(Fore.GREEN + Style.BRIGHT + "SUCCESS" + Fore.RESET + Style.RESET_ALL)
     else:
         CoreConsole.out(Fore.RED + Style.BRIGHT + "FAILURE" + Fore.RESET + Style.RESET_ALL)
+
+
+def getCoreTypeSize(t):
+    sizes = {
+        "CHAR": 1, "INT8": 1, "UINT8": 1, "INT16": 2, "UINT16": 2, "INT32": 4, "UINT32": 4, "INT64": 8, "UINT64": 8, "FLOAT32": 4, "FLOAT64": 8, "TIMESTAMP": 8
+    }
+
+    return sizes[t]
