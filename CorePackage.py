@@ -35,6 +35,7 @@ class CorePackage:
         self.buffer = []
 
         self.sources = []
+        self.cmakeSources = []
         self.includes = []
         self.link = False
 
@@ -163,6 +164,11 @@ class CorePackage:
             for file in self.sources:
                 copyOrLink(os.path.join(srcSources, file), os.path.join(dstSources, file), link=self.link)
 
+        self.cmakeSources = listFiles(srcSources)
+
+        for conf in self.listConfigurationFiles():
+            self.cmakeSources.append(conf + ".cpp") # TODO: now we assume that it will be generated...
+
         self.processCMake()
 
         self.cmake = os.path.join(self.destination, self.name + "Config.cmake")
@@ -177,7 +183,7 @@ class CorePackage:
             self.buffer.append('LIST( APPEND WORKSPACE_PACKAGES_MODULES ' + self.name + ' )')
 
             self.buffer.append('SET( WORKSPACE_PACKAGES_' + self.name + '_SOURCES')
-            for src in self.sources:
+            for src in self.cmakeSources:
                 self.buffer.append('  ' + os.path.join(self.destination, "src", src))
             self.buffer.append(')')
 
@@ -189,7 +195,7 @@ class CorePackage:
             self.buffer.append('LIST( APPEND WORKSPACE_PACKAGES_MODULES ' + self.name + ' )')
 
             self.buffer.append('SET( WORKSPACE_PACKAGES_' + self.name + '_SOURCES')
-            for src in self.sources:
+            for src in self.cmakeSources:
                 self.buffer.append('  ' + self.cmakePathPrefix + '/' + self.name + "/src/" + src)
             self.buffer.append(')')
 

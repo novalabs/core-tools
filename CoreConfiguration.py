@@ -76,6 +76,15 @@ class CoreConfiguration:
             return False
 
     def generate(self, path):
+        if not self.generateHeader(path):
+            return False
+
+        if not self.generateSource(path):
+            return False
+
+        return True
+
+    def generateHeader(self, path):
         self.generated = False
 
         try:
@@ -86,19 +95,19 @@ class CoreConfiguration:
                     if self.package is not None:
                         path = os.path.join(path, self.package.name, "include", self.package.provider, self.package.name)
                     else:
-                        path = path
+                        raise CoreError("Implementation changed. 'self.package' MUST be defined")
 
                     if not os.path.isdir(path):
                         os.makedirs(path)
 
                     self.destination = os.path.join(path, (self.name + ".hpp"))
 
-                    self.process()
+                    self.processHeader()
 
                     sink = open(self.destination, 'w')
                     sink.write("\n".join(self.buffer))
 
-                    CoreConsole.ok("CoreConfiguration::generate " + CoreConsole.highlightFilename(self.destination))
+                    CoreConsole.ok("CoreConfiguration::generateHeader " + CoreConsole.highlightFilename(self.destination))
 
                     self.generated = True
 
@@ -114,28 +123,90 @@ class CoreConfiguration:
 
         return True
 
-    def process(self):
+    def generateSource(self, path):
+        self.generated = False
+
+        try:
+            if self.valid:
+                if path == "":
+                    raise CoreError("'out' file is empty")
+                try:
+                    if self.package is not None:
+                        path = os.path.join(path, self.package.name, "src")
+                    else:
+                        raise CoreError("Implementation changed. 'self.package' MUST be defined")
+
+                    if not os.path.isdir(path):
+                        os.makedirs(path)
+
+                    self.destination = os.path.join(path, (self.name + ".cpp"))
+
+                    self.processSource()
+
+                    sink = open(self.destination, 'w')
+                    sink.write("\n".join(self.buffer))
+
+                    CoreConsole.ok("CoreConfiguration::generateSource " + CoreConsole.highlightFilename(self.destination))
+
+                    self.generated = True
+
+                except IOError as e:
+                    raise CoreError(str(e.strerror), e.filename)
+            else:
+                return False
+
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("CoreConfiguration::generate: " + self.reason)
+            return False
+
+        return True
+
+    def processHeader(self):
         self.buffer = []
         self.signatureBuffer = []
         if self.valid:
-            self.__processPreamble()
+            self.__processHeaderPreamble()
+
             self.__processNamsepaceBegin()
+
             self.__processConfigurationBegin()
+
+            self.buffer.append("// --- FIELDS -----------------------------------------------------------------")
             self.__processFields()
+            self.buffer.append("// ----------------------------------------------------------------------------")
 
             self.__updateSignature()
+
+            self.__processConfigurationSignature()
+            self.__processConfigurationLength()
+
+            self.__processConfigurationEnd()
+
+            self.__processNamsepaceEnd()
+
+    def processSource(self):
+        self.buffer = []
+        if self.valid:
+            self.__processSourcePreamble()
+
+            self.__processNamsepaceBegin()
 
             self.__processMapBegin()
             self.__processMapFields()
             self.__processMapEnd()
-            self.__processConfigurationSignature()
-            self.__processConfigurationEnd()
+
             self.__processNamsepaceEnd()
 
-    def __processPreamble(self):
+
+    def __processHeaderPreamble(self):
         self.buffer.append('#pragma once')
         self.buffer.append('')
         self.buffer.append('#include <core/mw/CoreConfiguration.hpp>')
+        self.buffer.append('')
+
+    def __processSourcePreamble(self):
+        self.buffer.append('#include <' + os.path.join(self.package.provider, self.package.name, self.name + '.hpp') + '>')
         self.buffer.append('')
 
     def __processNamsepaceBegin(self):
@@ -161,19 +232,23 @@ class CoreConfiguration:
             self.signatureBuffer.append(str(field['size']))
 
     def __processMapBegin(self):
-        fields = self.data['fields']
-        self.buffer.append('CORE_CONFIGURATION_MAP_BEGIN(' + str(len(fields)) + ')')
+        name = self.data['name']
+        self.buffer.append('CORE_CONFIGURATION_MAP_BEGIN(' + name + ')')
 
     def __processMapFields(self):
         fields = self.data['fields']
         for field in fields:
-            self.buffer.append('	CORE_CONFIGURATION_MAP_ENTRY(' + self.data['name'] + ', ' + field['name'] + ')')
+            self.buffer.append('	CORE_CONFIGURATION_MAP_ENTRY(' + self.data['name'] + ', ' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ')')
 
     def __processMapEnd(self):
         self.buffer.append('CORE_CONFIGURATION_MAP_END()')
 
     def __processConfigurationSignature(self):
         self.buffer.append('CORE_CONFIGURATION_SIGNATURE(' + str(self.signature) + ')')
+
+    def __processConfigurationLength(self):
+        fields = self.data['fields']
+        self.buffer.append('CORE_CONFIGURATION_LENGTH(' + str(len(fields))  + ')')
 
     def __processConfigurationEnd(self):
         self.buffer.append('CORE_CONFIGURATION_END()')
@@ -183,6 +258,7 @@ class CoreConfiguration:
         self.buffer.append('')
         for ns in namespace.split('::'):
             self.buffer.append('}')
+        self.buffer.append('')
 
     def getSummary(self, relpath = None):
         if self.valid:
