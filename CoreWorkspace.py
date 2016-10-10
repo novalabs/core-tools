@@ -37,7 +37,7 @@ class CoreWorkspace(CoreContainer):
         self.modulesCoreDependencies = []
         self.modulesNoneDependencies = []
 
-    def getRoot(self, cwd = None):
+    def getRoot(self, cwd=None):
         if self.root is None:  # Check for cached value
             self.root = findFileGoingUp("WORKSPACE.json", cwd)
             if self.root is not None:
@@ -124,7 +124,7 @@ class CoreWorkspace(CoreContainer):
             raise CoreError("CorePackage::* invalid")
         return os.path.join(self.getSourcesPath(), "targets")
 
-    def open(self, root = None, coreRoot = None):  # If root is None it will use CWD
+    def open(self, root=None, coreRoot=None):  # If root is None it will use CWD
         self.root = root
 
         if self.getRoot() is None:
@@ -281,6 +281,7 @@ class CoreWorkspace(CoreContainer):
     def getModulesDependenciesSummaryFields():
         return ["Module", "Source", "Notes"]
 
+
 # ENVIRONMENT VARIABLES -------------------------------------------------------
 
 NOVA_CORE_ROOT = os.environ.get("NOVA_CORE_ROOT")
@@ -292,6 +293,10 @@ NOVA_CORE_TOOLCHAIN = os.environ.get("NOVA_CORE_TOOLCHAIN")
 if NOVA_CORE_TOOLCHAIN is None:
     CoreConsole.out(CoreConsole.error("NOVA_CORE_TOOLCHAIN environment variable not found"))
     sys.exit(-1)
+
+NOVA_CHIBIOS_16_ROOT = os.environ.get("NOVA_CHIBIOS_16_ROOT")
+if NOVA_CHIBIOS_16_ROOT is None:
+    CoreConsole.out(CoreConsole.warning("NOVA_CHIBIOS_16_ROOT environment variable not found, will check later if we really need it"))
 
 NOVA_CHIBIOS_ROOT = os.environ.get("NOVA_CHIBIOS_ROOT")
 if NOVA_CHIBIOS_ROOT is None:
@@ -312,16 +317,23 @@ if CMAKE_MODULE_PATH is None:
     sys.exit(-1)
 
 
-def cmakeCommand(chip, source, buildType, workspaceRoot = NOVA_WORKSPACE_ROOT):
+def cmakeCommand(chip, source, buildType, OSVersion="CHIBIOS_3", workspaceRoot=NOVA_WORKSPACE_ROOT):
     cmake_cmd = "cmake --verbose"
     cmake_cmd += " -DSTM32_CHIP=" + chip
     cmake_cmd += " -DCMAKE_TOOLCHAIN_FILE=" + CMAKE_PREFIX_PATH + "/gcc_stm32.cmake"
     cmake_cmd += " -DCMAKE_BUILD_TYPE=" + buildType
     cmake_cmd += " -DTOOLCHAIN_PREFIX=" + NOVA_CORE_TOOLCHAIN
     cmake_cmd += " -DCMAKE_MODULE_PATH=" + CMAKE_MODULE_PATH
-    cmake_cmd += " -DCHIBIOS_ROOT="+NOVA_CHIBIOS_ROOT
-    cmake_cmd += " -DNOVA_ROOT="+NOVA_CORE_ROOT
-    cmake_cmd += " -DNOVA_WORKSPACE_ROOT="+workspaceRoot
+    if OSVersion == "CHIBIOS_3":
+        cmake_cmd += " -DCHIBIOS_ROOT=" + NOVA_CHIBIOS_ROOT
+    elif OSVersion == "CHIBIOS_16":
+        if NOVA_CHIBIOS_16_ROOT is None:
+            CoreConsole.out(CoreConsole.error("NOVA_CHIBIOS_16_ROOT environment variable not found, and we really need it"))
+            sys.exit(-1)
+        cmake_cmd += " -DCHIBIOS_ROOT=" + NOVA_CHIBIOS_16_ROOT
+
+    cmake_cmd += " -DNOVA_ROOT=" + NOVA_CORE_ROOT
+    cmake_cmd += " -DNOVA_WORKSPACE_ROOT=" + workspaceRoot
     cmake_cmd += ' -G "Eclipse CDT4 - Unix Makefiles"'
     cmake_cmd += " " + source
 
@@ -363,12 +375,14 @@ def target_action_completer(prefix, parsed_args, **kwargs):
     mm = ["add"]
     return (m for m in mm if m.startswith(prefix))
 
+
 def module_completer(prefix, parsed_args, **kwargs):
     if parsed_args.action is not None:
         coreRoot = os.environ.get("NOVA_CORE_ROOT")
         if coreRoot is not None:
             mm = listDirectories(os.path.join(coreRoot, "modules"))  # TODO ...
             return (m for m in mm if m.startswith(prefix))
+
 
 def build_type_completer(prefix, parsed_args, **kwargs):
     mm = ["debug", "release"]
@@ -481,7 +495,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         printSuccessOrFailure(False)
         return -1
 
-# --- DEPS --------------------------------------------------------------------
+    # --- DEPS --------------------------------------------------------------------
 
     table = []
     for x in workspace.packagesCoreDependencies:
@@ -526,7 +540,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         CoreConsole.out(CoreConsole.error("404 not found"))
         CoreConsole.out('')
 
-# --- NOW THE TARGETS ---------------------------------------------------------
+    # --- NOW THE TARGETS ---------------------------------------------------------
 
     for m in workspace.validModuleTargets:
         target_root = os.path.join(workspace.getSourcesPath(), "targets", m.name)
@@ -551,7 +565,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         if cm is None:
             cm = workspace.getModuleByName(m.module)
 
-# ECLIPSE WORKAROUND BEGIN
+        # ECLIPSE WORKAROUND BEGIN
         eclipse_workaround = os.environ.get("NOVA_CORE_ECLIPSE_LINK_FILES")
 
         if eclipse_workaround is not None:
@@ -568,7 +582,6 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
             if os.path.exists(moduleDst) and os.path.islink(moduleDst):
                 os.remove(moduleDst)
 
-            print "%s -> %s" %(moduleSrc, moduleDst)
             os.symlink(moduleSrc, moduleDst)  # Make links for Eclipse
 
             for package in m.requiredPackages:  # Link the target required packages
@@ -590,7 +603,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
                     os.remove(packageDst)
 
                 os.symlink(packageSrc, packageDst)  # Make links for Eclipse
-# ECLIPSE WORKAROUND END
+            # ECLIPSE WORKAROUND END
 
         executeCmake = True
         if mustGenerate:
@@ -611,7 +624,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
             if executeCmake:
                 (source, dummy) = os.path.split(m.source)
 
-                cmake_cmd = cmakeCommand(cm.chip, source, buildType, workspace.getRoot())
+                cmake_cmd = cmakeCommand(cm.chip, source, buildType, m.os_version, workspace.getRoot())
 
                 try:
                     CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
@@ -628,11 +641,11 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
             if m.generated:
                 if cmakeSuccess:
-                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, os.path.relpath(m.destination, workspace.getRoot()), dest, "Success"])
+                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), dest, "Success"])
                 else:
-                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, os.path.relpath(m.destination, workspace.getRoot()), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
+                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
             else:
-                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.reason, dest, ""])
+                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, m.reason, dest, ""])
 
                 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -680,11 +693,11 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
                 sink.close()
 
     for m in workspace.invalidModuleTargets:
-        table.append([CoreConsole.error(m.filename), CoreConsole.error(m.reason), "", "", ""])
+        table.append([CoreConsole.error(m.filename), CoreConsole.error(m.reason), "", "", "", ""])
 
     if len(table) > 0:
         CoreConsole.out(CoreConsole.h1("GENERATED TARGETS"))
-        CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "CoreModule", "Chip", "Output", "Build", "CMake"]))
+        CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "CoreModule", "Chip", "OS Version", "Output", "Build", "CMake"]))
 
     printSuccessOrFailure(isOk)
 
@@ -731,7 +744,6 @@ def initialize(force, verbose):
         mkdir(os.path.join(root, "build", "debug"))
         mkdir(os.path.join(root, "build", "release"))
 
-
         CoreConsole.out("Workspace initialized.")
         CoreConsole.out("You can now do a 'source setup.sh'")
     except IOError as e:
@@ -765,7 +777,7 @@ def target_add(module_name, name):
 
     for target in workspace.validModuleTargets:
         if target.name == name:
-            CoreConsole.out(CoreConsole.error("Target '" + name +  "' already defined"))
+            CoreConsole.out(CoreConsole.error("Target '" + name + "' already defined"))
             CoreConsole.out("")
             printSuccessOrFailure(False)
             return -1
@@ -788,9 +800,9 @@ def target_add(module_name, name):
             printSuccessOrFailure(False)
             return -1
 
-#TODO Add some error handling
+            # TODO Add some error handling
 
-#----------------------------------------------------------------------------------------------------------------------
+            # ----------------------------------------------------------------------------------------------------------------------
     shutil.copytree(os.path.join(module.moduleRoot, "target_template"), target_root)
 
     src = open(os.path.join(target_root, "MODULE_TARGET.json"))
@@ -806,6 +818,7 @@ def target_add(module_name, name):
     printSuccessOrFailure(True)
     return 0
 
+
 if '__main__' == __name__:
     try:
         parser = argparse.ArgumentParser()
@@ -815,7 +828,7 @@ if '__main__' == __name__:
         parser_ls = subparsers.add_parser('ls', help='Lists the Module')
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
-#        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
+        #        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
@@ -841,7 +854,7 @@ if '__main__' == __name__:
 
         if args.action is None:
             sys.exit(-1)
-            
+
         verbose = args.verbose
 
         if not verbose:

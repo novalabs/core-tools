@@ -5,9 +5,9 @@
 
 from CoreModule import *
 
-
 class ModuleTarget:
-    schema = '{ "type": "record", "name": "ModuleTarget", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "module", "type": "string" }, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "sources", "type": { "type": "array", "items": "string" } }, { "name": "includes", "type": { "type": "array", "items": "string" } } ] }'
+    schema = '{ "type": "record", "name": "ModuleTarget", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "module", "type": "string" },  {"name": "os_version", "type": ["null", { "type": "enum", "name": "OSVersion", "symbols" : ["CHIBIOS_3", "CHIBIOS_16"]}]}, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "sources", "type": { "type": "array", "items": "string" } }, { "name": "includes", "type": { "type": "array", "items": "string" } } ] }'
+    DEFAULT_OS_VERSION = "CHIBIOS_3"
 
     def __init__(self):
         self.workspace = None
@@ -23,6 +23,7 @@ class ModuleTarget:
         self.namespace = ""
         self.description = ""
         self.module = ""
+        self.os_version = ""
 
         self.destination = ""
 
@@ -48,6 +49,10 @@ class ModuleTarget:
                 self.name = self.data["name"]
                 self.description = self.data["description"]
                 self.module = self.data["module"]
+                if "os_version" in self.data:
+                    self.os_version = self.data["os_version"]
+                else:
+                    self.os_version = self.DEFAULT_OS_VERSION
                 self.sources = []
                 for x in self.data["sources"]:
                     self.sources.append(x)
@@ -175,6 +180,8 @@ class ModuleTarget:
     def __processCoreTarget(self):
         self.buffer.append('core_target_module(')
         self.buffer.append('  MODULE ' + self.module)
+        if self.os_version is not None:
+            self.buffer.append('  OS_VERSION ' + self.os_version)
         if len(self.requiredPackages) > 0:
             self.buffer.append('  PACKAGES')
             for x in self.requiredPackages:
@@ -197,14 +204,14 @@ class ModuleTarget:
             src = os.path.relpath(self.moduleTargetRoot, relpath)
 
         if self.valid:
-            return [CoreConsole.highlight(self.name), self.description, self.module, src]
+            return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src]
         else:
-            return ["", CoreConsole.error(self.reason), "", src]
+            return ["", CoreConsole.error(self.reason), "", "", src]
 
 
     @staticmethod
     def getSummaryFields():
-        return ["Name", "Description", "Module", "Root"]
+        return ["Name", "Description", "Module", "OS Version", "Root"]
 
 
     def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
@@ -220,16 +227,16 @@ class ModuleTarget:
                 dst = self.destination
 
             if self.generated:
-                return [CoreConsole.highlight(self.name), self.description, self.module, src, dst]
+                return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, dst]
             else:
-                return [CoreConsole.highlight(self.name), self.description, self.module, src, CoreConsole.error(self.reason)]
+                return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.error(self.reason)]
         else:
             return ["", CoreConsole.error(self.reason), "", "", ""]
 
 
     @staticmethod
     def getSummaryFieldsGenerate():
-        return ["Name", "Description", "Module", "Root", "Generate"]
+        return ["Name", "Description", "Module", "OS Version", "Root", "Generate"]
 
 
     # @staticmethod
