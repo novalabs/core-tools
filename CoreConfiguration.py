@@ -85,6 +85,12 @@ class CoreConfiguration:
         if not self.generateSource(path):
             return False
 
+        for field in self.data['fields']:
+            if len(field['name']) > 23:
+                self.reason = "Field name " + field['name'] + " is too long"
+                self.generated = False
+                return False
+
         return True
 
     def generateHeader(self, path):
