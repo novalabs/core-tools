@@ -606,11 +606,11 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
             # ECLIPSE WORKAROUND END
 
         executeCmake = True
-        if mustGenerate:
-            m.generate(target_root)
-            if not m.generated:
-                executeCmake = False
-                isOk = False
+
+        m.generate(target_root, not mustGenerate)
+        if not m.generated:
+            executeCmake = False
+            isOk = False
 
         for buildType in buildTypes:
             dest = os.path.join(workspace.getBuildPath(), buildType)
@@ -641,11 +641,11 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
             if m.generated:
                 if cmakeSuccess:
-                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), dest, "Success"])
+                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate), dest, "Success"])
                 else:
-                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
+                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
             else:
-                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, m.reason, dest, ""])
+                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, m.reason, str(mustGenerate), dest, ""])
 
                 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -697,7 +697,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
     if len(table) > 0:
         CoreConsole.out(CoreConsole.h1("GENERATED TARGETS"))
-        CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "CoreModule", "Chip", "OS Version", "Output", "Build", "CMake"]))
+        CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "CoreModule", "Chip", "OS Version", "CMakeLists", "Generated CMakeLists", "Build", "CMake"]))
 
     printSuccessOrFailure(isOk)
 

@@ -49,10 +49,12 @@ class ModuleTarget:
                 self.name = self.data["name"]
                 self.description = self.data["description"]
                 self.module = self.data["module"]
+
                 if "os_version" in self.data:
                     self.os_version = self.data["os_version"]
                 else:
                     self.os_version = self.DEFAULT_OS_VERSION
+
                 self.sources = []
                 for x in self.data["sources"]:
                     self.sources.append(x)
@@ -64,6 +66,8 @@ class ModuleTarget:
                 self.requiredPackages = []
                 for x in self.data["required_packages"]:
                     self.requiredPackages.append(x)
+
+                CoreConsole.ok("ModuleTarget:: valid")
 
                 self.valid = True
             else:
@@ -88,6 +92,8 @@ class ModuleTarget:
 
     def open(self, root=None, name=None):
         self.valid = False
+
+        CoreConsole.info("ModuleTarget::open(" + str(root) + ", " + str(name) + ")")
 
         if root is not None:
             if name is not None:
@@ -115,9 +121,8 @@ class ModuleTarget:
         self.valid = False
         return False
 
-    def generate(self, out=""):
+    def generate(self, out="", skip=False):
         self.generated = False
-
         if self.valid:
             try:
                 if out == "":
@@ -127,12 +132,16 @@ class ModuleTarget:
                         os.mkdir(out)
 
                 self.destination = os.path.join(out, "CMakeLists.txt")
-                sink = open(self.destination, 'w')
 
-                self.process()
+                if not skip:
+                    sink = open(self.destination, 'w')
 
-                sink.write("\n".join(self.buffer))
-                CoreConsole.ok("ModuleTarget::generate " + CoreConsole.highlightFilename(self.destination))
+                    self.process()
+
+                    sink.write("\n".join(self.buffer))
+                    CoreConsole.ok("ModuleTarget::generate " + CoreConsole.highlightFilename(self.destination))
+                else:
+                    CoreConsole.ok("ModuleTarget::generate " + CoreConsole.highlightFilename(self.destination) + " SKIPPED")
 
                 self.generated = True
             except IOError as e:
