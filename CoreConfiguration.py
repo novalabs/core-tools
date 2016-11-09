@@ -25,6 +25,7 @@ class CoreConfiguration:
 
         self.destination = ""
 
+        self.orderedFields = []
         self.buffer = []
         self.signature = 0xffffffff
         self.signatureBuffer = []
@@ -51,6 +52,8 @@ class CoreConfiguration:
                     self.namespace = self.package.provider + "::" + self.namespace
 
                 self.valid = True
+
+                return self.preProcess() # sort the fields and calculate the signature
             else:
                 raise CoreError("Configuration filename/name mismatch", jsonFile)
         except CoreError as e:
@@ -59,7 +62,6 @@ class CoreConfiguration:
             self.valid = False
             return False
 
-        return True
 
     def open(self, name, package=None):
         if package is not None:
@@ -171,9 +173,40 @@ class CoreConfiguration:
 
         return True
 
+    def preProcess(self):
+        try:
+            if self.valid:
+                self.signatureBuffer = []
+                self.orderedFields = []
+
+                namespace = self.namespace
+                for ns in namespace.split('::'):
+                    self.signatureBuffer.append(ns)
+
+                self.signatureBuffer.append(self.data['name'])
+
+                fields = self.data['fields']
+                for fieldType in self.fieldtypeOrder:
+                    for field in fields:
+                        if fieldType == field['type']:
+                            self.orderedFields.append(field)
+                            self.signatureBuffer.append(field['name'])
+                            self.signatureBuffer.append(field['type'])
+                            self.signatureBuffer.append(str(field['size']))
+                self.__updateSignature()
+                return True
+            else:
+                return False
+
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("CoreConfiguration::preProcess: " + self.reason)
+            return False
+
+        return True
+
     def processHeader(self):
         self.buffer = []
-        self.signatureBuffer = []
         if self.valid:
             self.__processHeaderPreamble()
 
@@ -184,8 +217,6 @@ class CoreConfiguration:
             self.buffer.append("// --- FIELDS -----------------------------------------------------------------")
             self.__processFields()
             self.buffer.append("// ----------------------------------------------------------------------------")
-
-            self.__updateSignature()
 
             self.__processConfigurationSignature()
             self.__processConfigurationLength()
@@ -207,7 +238,6 @@ class CoreConfiguration:
 
             self.__processNamsepaceEnd()
 
-
     def __processHeaderPreamble(self):
         self.buffer.append('#pragma once')
         self.buffer.append('')
@@ -222,25 +252,18 @@ class CoreConfiguration:
         namespace = self.namespace
         for ns in namespace.split('::'):
             self.buffer.append('namespace ' + ns + ' {')
-            self.signatureBuffer.append(ns)
         self.buffer.append('')
 
     def __processConfigurationBegin(self):
         self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.data['name'] + ') //' + self.data['description'])
-        self.signatureBuffer.append(self.data['name'])
 
     def __updateSignature(self):
         self.signature = hex(zlib.crc32(b':'.join(self.signatureBuffer)) & 0xffffffff)
 
     def __processFields(self):
-        fields = self.data['fields']
-        for fieldType in self.fieldtypeOrder:
-            for field in fields:
-                if fieldType == field['type']:
-                    self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
-                    self.signatureBuffer.append(field['name'])
-                    self.signatureBuffer.append(field['type'])
-                    self.signatureBuffer.append(str(field['size']))
+        fields = self.orderedFields
+        for field in fields:
+            self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
 
     def __processMapBegin(self):
         name = self.data['name']
