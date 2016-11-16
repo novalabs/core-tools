@@ -5,12 +5,13 @@
 
 from CoreUtils import *
 import zlib
+import struct
 
 
 class CoreConfiguration:
     schema = '{ "type": "record", "name": "CoreConfiguration", "namespace" : "", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "fields", "type": { "type": "array", "items": { "type": "record", "name": "CoreConfigurationParameter", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "type", "type": { "type": "enum", "name": "CoreConfigurationParameterDataType", "symbols": [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64" ] } }, { "name": "size", "type": "int", "default": 1 } ] } } } ] }'
 
-    fieldtypeOrder = ["TIMESTAMP", "INT64", "UINT64", "FLOAT64", "INT32", "UINT32", "FLOAT32", "INT16", "UINT16", "CHAR", "INT8", "UINT8"]
+    FieldtypeOrder = ["TIMESTAMP", "INT64", "UINT64", "FLOAT64", "INT32", "UINT32", "FLOAT32", "INT16", "UINT16", "CHAR", "INT8", "UINT8"]
 
     def __init__(self):
         self.package = None
@@ -27,6 +28,7 @@ class CoreConfiguration:
 
         self.orderedFields = []
         self.buffer = []
+
         self.signature = 0xffffffff
         self.signatureBuffer = []
 
@@ -52,8 +54,12 @@ class CoreConfiguration:
                     self.namespace = self.package.provider + "::" + self.namespace
 
                 self.valid = True
+                self.valid = self.preProcess()  # sort the fields and calculate the signature
 
-                return self.preProcess() # sort the fields and calculate the signature
+                if self.valid:
+                    CoreConsole.ok("CoreConfiguration:: valid")
+
+                return self.valid
             else:
                 raise CoreError("Configuration filename/name mismatch", jsonFile)
         except CoreError as e:
@@ -61,7 +67,6 @@ class CoreConfiguration:
             CoreConsole.fail("CoreConfiguration::openJSON: " + self.reason)
             self.valid = False
             return False
-
 
     def open(self, name, package=None):
         if package is not None:
@@ -186,13 +191,19 @@ class CoreConfiguration:
                 self.signatureBuffer.append(self.data['name'])
 
                 fields = self.data['fields']
-                for fieldType in self.fieldtypeOrder:
+                for fieldType in self.FieldtypeOrder:
                     for field in fields:
                         if fieldType == field['type']:
                             self.orderedFields.append(field)
                             self.signatureBuffer.append(field['name'])
                             self.signatureBuffer.append(field['type'])
                             self.signatureBuffer.append(str(field['size']))
+                            if 'default' not in field:
+                                field['default'] = None
+                            else:
+                                if checkCTypeValueForCoreType(field['type'], field['size'], field['default']) is None:
+                                    raise CoreError("Default value specified for field '" + field['name'] + "' is not compatible with CoreType<" + field['type'] + ", " + str(field['size']) + ">")
+
                 self.__updateSignature()
                 return True
             else:
@@ -232,6 +243,12 @@ class CoreConfiguration:
 
             self.__processNamsepaceBegin()
 
+            self.__processDefaultBegin()
+            self.__processDefaultFields()
+            self.__processDefaultEnd()
+
+            self.__processConstructor()
+
             self.__processMapBegin()
             self.__processMapFields()
             self.__processMapEnd()
@@ -258,12 +275,42 @@ class CoreConfiguration:
         self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.data['name'] + ') //' + self.data['description'])
 
     def __updateSignature(self):
-        self.signature = hex(zlib.crc32(b':'.join(self.signatureBuffer)) & 0xffffffff)
+        self.signature = (zlib.crc32(bytearray(':'.join(self.signatureBuffer), 'ascii')) & 0xffffffff)
 
     def __processFields(self):
         fields = self.orderedFields
         for field in fields:
-            self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
+            self.buffer.append('	CORE_CONFIGURATION_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'] + ' [' + (str(field['default']) if field['default'] is not None else '') + ']')
+
+    def __processConstructor(self):
+        self.buffer.append('CORE_CONFIGURATION_CONSTRUCTOR_BEGIN(' + self.data['name'] + ')')
+
+        buffer = ""
+        fields = self.orderedFields
+        for field in fields:
+            if field['default'] is not None:
+                buffer = buffer + '	CORE_CONFIGURATION_CONSTRUCTOR_FIELD(' + field['name'] + '), ' + "\n"
+            else:
+                buffer = buffer + '	CORE_CONFIGURATION_CONSTRUCTOR_FIELD_NONE(' + field['name'] + '), ' + "\n"
+        buffer = buffer[:-3]
+
+        self.buffer.append(buffer)
+
+        self.buffer.append('CORE_CONFIGURATION_CONSTRUCTOR_END()')
+        self.buffer.append('')
+
+    def __processDefaultBegin(self):
+        self.buffer.append('CORE_CONFIGURATION_DEFAULT_BEGIN()')
+
+    def __processDefaultFields(self):
+        fields = self.orderedFields
+        for field in fields:
+            if field['default'] is not None:
+                self.buffer.append('	CORE_CONFIGURATION_DEFAULT_FIELD(' + field['name'] + ', ' + field['type'] + ', ' +  str(field['size']) + ', ' + formatValuesAsC(field['type'], field['size'], field['default']) + ')')
+
+    def __processDefaultEnd(self):
+        self.buffer.append('CORE_CONFIGURATION_DEFAULT_END()')
+        self.buffer.append('')
 
     def __processMapBegin(self):
         name = self.data['name']
@@ -278,11 +325,11 @@ class CoreConfiguration:
         self.buffer.append('CORE_CONFIGURATION_MAP_END()')
 
     def __processConfigurationSignature(self):
-        self.buffer.append('CORE_CONFIGURATION_SIGNATURE(' + str(self.signature) + ')')
+        self.buffer.append('CORE_CONFIGURATION_SIGNATURE(' + hex(self.signature) + ')')
 
     def __processConfigurationLength(self):
         fields = self.data['fields']
-        self.buffer.append('CORE_CONFIGURATION_LENGTH(' + str(len(fields))  + ')')
+        self.buffer.append('CORE_CONFIGURATION_LENGTH(' + str(len(fields)) + ')')
 
     def __processConfigurationEnd(self):
         self.buffer.append('CORE_CONFIGURATION_END()')
@@ -329,3 +376,48 @@ class CoreConfiguration:
     @staticmethod
     def getSummaryFieldsGenerate():
         return ["NS", "Name", "Description", "Root", "Generate"]
+
+    def pack(self, fields, name=None):
+        values = []
+        if name is not None:
+            formatString = '<16sL'
+            values.append(bytes(name, "ascii"))
+        else:
+            formatString = '<L'
+
+        values.append(self.signature)
+
+        for field in self.orderedFields:
+
+            if field['type'] == 'CHAR' and field['size'] > 1:
+                formatString = formatString + '%ds' % field['size']
+            else:
+                formatString = formatString + field['size'] * TypeFormatMap[field['type']]
+
+            value = None
+
+            if field['name'] in fields:
+                value = fields[field['name']]
+            else:
+                if field['default'] is not None:
+                    value = field['default']
+
+            if value is None:
+                self.reason = "No value or default specified for field '" + field['name'] + "'"
+                CoreConsole.fail("CoreConfiguration::pack: " + self.reason)
+                return (None, 0)
+
+            value = checkCTypeValueForCoreType(field['type'], field['size'], value)
+
+            if value is None:
+                self.reason = "Value specified for field '" + field['name'] + "' is not compatible with type '" + field['type'] + "'"
+                CoreConsole.fail("CoreConfiguration::pack: " + self.reason)
+                return (None, 0)
+
+            values = values + value
+
+        print(formatString)
+        print(values)
+
+        s = struct.Struct(formatString)
+        return (s.pack(*values), s.size)
