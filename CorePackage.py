@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
@@ -69,7 +69,7 @@ class CorePackage:
 
         return True
 
-    def open(self, root = None, name = None):
+    def open(self, root=None, name=None):
         self.valid = False
 
         if root is not None:
@@ -108,7 +108,7 @@ class CorePackage:
 
         return self.root
 
-    def generate(self, path, cmakePathPrefix = None, link = False):
+    def generate(self, path, cmakePathPrefix=None, link=False):
         self.cmakePathPrefix = cmakePathPrefix
         self.generated = False
         self.link = link
@@ -123,7 +123,7 @@ class CorePackage:
                     self.destination = path
 
                     if not os.path.isdir(self.destination):
-                            os.makedirs(self.destination)
+                        os.makedirs(self.destination)
 
                     self.process()
 
@@ -167,7 +167,7 @@ class CorePackage:
         self.cmakeSources = listFiles(srcSources)
 
         for conf in self.listConfigurationFiles():
-            self.cmakeSources.append(conf + ".cpp") # TODO: now we assume that it will be generated...
+            self.cmakeSources.append(conf + ".cpp")  # TODO: now we assume that it will be generated...
 
         self.processCMake()
 
@@ -204,7 +204,7 @@ class CorePackage:
             self.buffer.append(')')
             self.buffer.append('')
 
-    def getSummary(self, relpath = None):
+    def getSummary(self, relpath=None):
         if self.valid:
             if relpath is not None:
                 return [CoreConsole.highlight(self.name), self.description, self.provider, os.path.relpath(self.packageRoot, relpath)]
@@ -217,7 +217,7 @@ class CorePackage:
     def getSummaryFields():
         return ["Name", "Description", "Provider", "Root"]
 
-    def getSummaryGenerate(self, relpathSrc = None, relpathDst = None):
+    def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
         if self.valid:
             if relpathSrc is not None:
                 src = os.path.relpath(self.packageRoot, relpathSrc)
@@ -288,7 +288,7 @@ class CorePackage:
         else:
             raise CoreError("Node " + x + " not found in package")
 
-    def getIncludeDir(self, namespace = ""):
+    def getIncludeDir(self, namespace=""):
         if not self.valid:
             raise CoreError("CorePackage::* invalid")
         if namespace == "":
@@ -296,7 +296,7 @@ class CorePackage:
         return os.path.join(self.packageRoot, "include", namespace)
 
     @staticmethod
-    def check(root, name = None):
+    def check(root, name=None):
         if name is None:
             return os.path.exists(os.path.join(root, "CORE_PACKAGE.json"))
         else:
@@ -334,7 +334,7 @@ def ls(srcPath, verbose):
         printSuccessOrFailure(False)
         return -1
 
-# --- List nodes --------------------------------------------------------------
+    # --- List nodes --------------------------------------------------------------
     table = []
     tmp = package.listNodeFiles()
     for x in tmp:
@@ -349,9 +349,9 @@ def ls(srcPath, verbose):
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("NODES"))
         CoreConsole.out(CoreConsole.table(table, CoreNode.getSummaryFields()))
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
-# --- List configurations -----------------------------------------------------
+    # --- List configurations -----------------------------------------------------
     table = []
     tmp = package.listConfigurationFiles()
     for x in tmp:
@@ -366,9 +366,9 @@ def ls(srcPath, verbose):
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("CONFIGURATIONS"))
         CoreConsole.out(CoreConsole.table(table, CoreConfiguration.getSummaryFields()))
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
-# --- List messages -----------------------------------------------------------
+    # --- List messages -----------------------------------------------------------
     table = []
     tmp = package.listMessageFiles()
     for x in tmp:
@@ -383,7 +383,7 @@ def ls(srcPath, verbose):
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
         CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFields()))
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     printSuccessOrFailure(isOk)
 
@@ -419,7 +419,7 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False):
         printSuccessOrFailure(False)
         return -1
 
-# --- Generate configurations -------------------------------------------------
+    # --- Generate configurations -------------------------------------------------
     table = []
     tmp = package.listConfigurationFiles()
     for x in tmp:
@@ -435,9 +435,9 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False):
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("CONFIGURATIONS"))
         CoreConsole.out(CoreConsole.table(table, CoreConfiguration.getSummaryFieldsGenerate()))
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
-# --- Generate messages -------------------------------------------------------
+    # --- Generate messages -------------------------------------------------------
     table = []
     tmp = package.listMessageFiles()
     for x in tmp:
@@ -453,7 +453,7 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False):
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
         CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFieldsGenerate()))
-# -----------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------
 
     printSuccessOrFailure(isOk)
 

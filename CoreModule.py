@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
@@ -228,7 +228,7 @@ class CoreModule:
             return ["", CoreConsole.error(self.reason), "", ""]
 
     @staticmethod
-    def getSummaryFields(self=None):
+    def getSummaryFields():
         return ["Name", "Description", "Chip", "Root"]
 
     def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
@@ -255,7 +255,7 @@ class CoreModule:
             return ["", CoreConsole.error(self.reason), "", ""]
 
     @staticmethod
-    def getSummaryFieldsGenerate(self=None):
+    def getSummaryFieldsGenerate():
         return ["Name", "Description", "Chip", "Root", "Generate"]
 
     @staticmethod

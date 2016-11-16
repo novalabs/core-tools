@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
@@ -736,6 +736,7 @@ def initialize(force, verbose):
         # create directories
         mkdir(os.path.join(root, "src"))
         mkdir(os.path.join(root, "src", "targets"))
+        mkdir(os.path.join(root, "src", "params"))
         mkdir(os.path.join(root, "src", "packages"))
         mkdir(os.path.join(root, "generated"))
         mkdir(os.path.join(root, "generated", "modules"))

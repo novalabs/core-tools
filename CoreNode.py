@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # COPYRIGHT (c) 2016 Nova Labs SRL
 #
@@ -9,6 +9,7 @@ from json import loads
 from sys import argv
 from string import Template
 from CoreUtils import *
+
 
 class CoreNode:
     schema = '{ "type": "record", "name": "CoreNode", "fields": [ { "name": "name", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "description", "type": "string" }, { "name": "publishes", "type": { "type": "array", "items": { "type": "record", "name": "CoreNodeTopicP", "fields": [ { "name": "name", "type": "string" }, { "name": "message", "type": "string" }, { "name": "configuration", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "subscribes", "type": { "type": "array", "items": { "type": "record", "name": "CoreNodeTopicS", "fields": [ { "name": "name", "type": "string" }, { "name": "message", "type": "string" }, { "name": "configuration", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "configuration", "type": { "type": "array", "items": { "type": "record", "name": "CoreNodeConfiguration", "fields": [ { "name": "name", "type": "string" }, { "name": "parameters", "type": "string" }, { "name": "description", "type": "string" } ] } } } ] }'
@@ -52,7 +53,7 @@ class CoreNode:
 
         return True
 
-    def open(self,  name, package = None):
+    def open(self, name, package=None):
         if package is not None:
             jsonFile = package.getNodeFile(name)
         else:
@@ -69,8 +70,7 @@ class CoreNode:
             CoreConsole.fail("CoreNode::open: " + self.reason)
             return False
 
-
-    def getSummary(self, relpath = None):
+    def getSummary(self, relpath=None):
         if self.valid:
             if relpath is not None:
                 return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, os.path.relpath(self.source, relpath)]
