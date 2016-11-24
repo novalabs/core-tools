@@ -3,9 +3,10 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from CoreUtils import *
 import zlib
 import struct
+
+from .CoreUtils import *
 
 
 class CoreConfiguration:
@@ -19,8 +20,8 @@ class CoreConfiguration:
         self.source = ""
 
         self.data = None
+        self.defaultData = None
 
-        self.name = ""
         self.namespace = ""
         self.description = ""
 
@@ -54,7 +55,6 @@ class CoreConfiguration:
                     self.namespace = self.package.provider + "::" + self.namespace
 
                 self.valid = True
-                self.valid = self.preProcess()  # sort the fields and calculate the signature
 
                 if self.valid:
                     CoreConsole.ok("CoreConfiguration:: valid")
@@ -68,9 +68,22 @@ class CoreConfiguration:
             self.valid = False
             return False
 
-    def open(self, name, package=None):
+    def openDefaultJSON(self, jsonFile):
+        CoreConsole.info("CONFIGURATION DEFAULT: " + CoreConsole.highlightFilename(jsonFile))
+
+        try:
+            self.defaultData = loadJson(jsonFile)
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("CoreConfiguration::openDefaultJSON: " + self.reason)
+            return False
+
+    def open(self, name, package=None, defaultFile=None):
+        self.__init__()
+
         if package is not None:
             jsonFile = package.getConfigurationFile(name)
+            defaultFile = package.getConfigurationDefaultFile(name)
         else:
             jsonFile = name
 
@@ -78,8 +91,12 @@ class CoreConfiguration:
             self.package = package
             self.filename = getFileName(jsonFile)
 
-            return self.openJSON(jsonFile)
+            if self.openJSON(jsonFile):
+                if defaultFile is not None:
+                    self.openDefaultJSON(defaultFile)
+            self.valid = self.preProcess()  # sort the fields and calculate the signature
 
+            return self.valid
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("CoreConfiguration::open: " + self.reason)
@@ -198,11 +215,15 @@ class CoreConfiguration:
                             self.signatureBuffer.append(field['name'])
                             self.signatureBuffer.append(field['type'])
                             self.signatureBuffer.append(str(field['size']))
-                            if 'default' not in field:
-                                field['default'] = None
-                            else:
-                                if checkCTypeValueForCoreType(field['type'], field['size'], field['default']) is None:
-                                    raise CoreError("Default value specified for field '" + field['name'] + "' is not compatible with CoreType<" + field['type'] + ", " + str(field['size']) + ">")
+
+                            field['default'] = None
+
+                            if self.defaultData is not None:
+                                if field['name'] in self.defaultData:
+                                    if checkCTypeValueForCoreType(field['type'], field['size'], self.defaultData[field['name']]) is not None:
+                                        field['default'] = self.defaultData[field['name']]
+                                    else:
+                                        raise CoreError("Default value specified for field '" + field['name'] + "' is not compatible with CoreType<" + field['type'] + ", " + str(field['size']) + ">")
 
                 self.__updateSignature()
                 return True
@@ -410,14 +431,15 @@ class CoreConfiguration:
             value = checkCTypeValueForCoreType(field['type'], field['size'], value)
 
             if value is None:
-                self.reason = "Value specified for field '" + field['name'] + "' is not compatible with type '" + field['type'] + "'"
+                self.reason = "Value specified for field '" + field['name'] + "' is not compatible with type '" + field['type'] + "[" + str(field['size']) + "]'"
                 CoreConsole.fail("CoreConfiguration::pack: " + self.reason)
                 return (None, 0)
 
             values = values + value
 
-        print(formatString)
-        print(values)
-
         s = struct.Struct(formatString)
-        return (s.pack(*values), s.size)
+        packed = s.pack(*values)
+
+        CoreConsole.info("CoreConfiguration::pack: '" + formatString + "' [size=" + str(s.size) + "] " + repr(values) + " -> " + repr(packed))
+
+        return (packed, s.size)

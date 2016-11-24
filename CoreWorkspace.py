@@ -11,276 +11,9 @@ import argcomplete
 
 import subprocess
 
-from Core import *
+from novalabs.core.CoreWorkspace import *
 from CoreModule import generate as generateModule
 from CorePackage import generate as generatePackage
-
-
-class CoreWorkspace(CoreContainer):
-    def __init__(self):
-        CoreContainer.__init__(self)
-
-        self.root = None
-        self.sources = None
-        self.generated = None
-        self.build = None
-        self.valid = False
-        self.opened = False
-        self.reason = ""
-        self.requiredModules = []
-        self.requiredPackages = []
-        self.core = Core()
-        self.packagesCoreDependencies = []
-        self.packagesWorkspaceDependencies = []
-        self.packagesNoneDependencies = []
-        self.modulesWorkspaceDependencies = []
-        self.modulesCoreDependencies = []
-        self.modulesNoneDependencies = []
-
-    def getRoot(self, cwd=None):
-        if self.root is None:  # Check for cached value
-            self.root = findFileGoingUp("WORKSPACE.json", cwd)
-            if self.root is not None:
-                CoreConsole.ok("CoreWorkspace::getRoot: Workspace found in " + CoreConsole.highlightFilename(self.root))
-            else:
-                self.reason = "CoreWorkspace::getRoot: Not inside a Workspace"
-                CoreConsole.fail(self.reason)
-
-        return self.root
-
-    def clean(self, force):
-        root = self.getRoot()
-        if root is not None:
-            if not force:
-                print("OK: " + root)
-        else:
-            print("!!!!")
-
-    def getSourcesPath(self):
-        if self.sources is None:  # Check for cached value
-            if self.getRoot() is not None:
-                tmp = os.path.join(self.root, "src")
-                if os.path.isdir(tmp):
-                    self.sources = tmp
-                else:
-                    self.reason = "CoreWorkspace::getSourcesPath: 'sources' directory not found inside Workspace"
-                    CoreConsole.fail(self.reason)
-                    self.sources = None
-            else:
-                self.sources = None
-
-        return self.sources
-
-    def getGeneratedPath(self):
-        try:
-            if self.generated is None:  # Check for cached value
-                if self.getRoot() is not None:
-                    tmp = os.path.join(self.root, "generated")
-                    if not os.path.isdir(tmp):
-                        try:
-                            os.makedirs(tmp)
-                        except OSError as e:
-                            raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
-                    self.generated = tmp
-                else:
-                    self.generated = None
-        except CoreError as e:
-            self.reason = str(e.value)
-            CoreConsole.fail("CoreWorkspace::getGeneratedPath: " + self.reason)
-
-        return self.generated
-
-    def getBuildPath(self):
-        try:
-            if self.build is None:  # Check for cached value
-                if self.getRoot() is not None:
-                    tmp = os.path.join(self.root, "build")
-                    if not os.path.isdir(tmp):
-                        try:
-                            os.makedirs(tmp)
-                        except OSError as e:
-                            raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
-                    self.build = tmp
-                else:
-                    self.build = None
-        except CoreError as e:
-            self.reason = str(e.value)
-            CoreConsole.fail("CoreWorkspace::getBuildPath: " + self.reason)
-
-        return self.build
-
-    def getPackagesRoot(self):
-        if not self.valid:
-            raise CoreError("CorePackage::* invalid")
-        return os.path.join(self.getSourcesPath(), "packages")
-
-    def getModulesRoot(self):
-        if not self.valid:
-            raise CoreError("CorePackage::* invalid")
-        return self.getSourcesPath()
-
-    def getModuleTargetsRoot(self):
-        if not self.valid:
-            raise CoreError("CorePackage::* invalid")
-        return os.path.join(self.getSourcesPath(), "targets")
-
-    def open(self, root=None, coreRoot=None):  # If root is None it will use CWD
-        self.root = root
-
-        if self.getRoot() is None:
-            self.reason = "CoreWorkspace::open: Not a valid Workspace [" + self.reason + "]"
-            return False
-
-        if self.getSourcesPath() is None:
-            self.reason = "CoreWorkspace::open: Not a valid Workspace [" + self.reason + "]"
-            return False
-
-        if self.getGeneratedPath() is None:
-            self.reason = "CoreWorkspace::open: Not a valid Workspace [" + self.reason + "]"
-            return False
-
-        if self.getBuildPath() is None:
-            self.reason = "CoreWorkspace::open: Not a valid Workspace [" + self.reason + "]"
-            return False
-
-        self.valid = True
-        self.opened = True
-
-        self.openModules()
-        self.openPackages()
-        self.openModuleTargets()
-
-        self.opened = self.core.open(coreRoot)
-
-        return self.opened
-
-    def getRequiredModules(self):
-        tmp = []
-        for x in self.validModuleTargets:
-            tmp.append(x.module)
-
-        self.requiredModules = list(set(tmp))
-
-        return self.requiredModules
-
-    def getRequiredPackages(self):
-        tmp = []
-        for x in self.validModuleTargets:
-            for y in x.requiredPackages:
-                tmp.append(y)
-
-            m = self.core.getModuleByName(x.module)
-            if m is not None:
-                for y in m.requiredPackages:
-                    tmp.append(y)
-
-        self.requiredPackages = list(set(tmp))
-        self.requiredPackages.sort()
-
-        return self.requiredPackages
-
-    def checkPackagesDependencies(self):
-        self.packagesWorkspaceDependencies = []
-        self.packagesCoreDependencies = []
-        self.packagesNoneDependencies = []
-        isOk = True
-
-        for x in self.getRequiredPackages():
-            tmpW = self.getPackageByName(x)
-            tmpC = self.core.getPackageByName(x)
-
-            if tmpW is not None:
-                self.packagesWorkspaceDependencies.append(tmpW)
-            else:
-                if tmpC is not None:
-                    self.packagesCoreDependencies.append(tmpC)
-                else:
-                    self.packagesNoneDependencies.append(x)
-                    isOk = False
-
-        return isOk
-
-    def getPackagesDependenciesSummary(self):
-        table = []
-
-        for x in self.getRequiredPackages():
-            tmpW = self.getPackageByName(x)
-            tmpC = self.core.getPackageByName(x)
-
-            l = CoreConsole.highlight(x)
-            s = ""
-            n = ""
-            if tmpW is not None:
-                if tmpC is None:
-                    s = "Workspace"
-                else:
-                    s = "Workspace"
-                    n = "Shadows Core"
-            else:
-                if tmpC is not None:
-                    s = "Core"
-                else:
-                    n = CoreConsole.error("Not found")
-
-            table.append([l, s, n])
-
-        return table
-
-    @staticmethod
-    def getPackagesDependenciesSummaryFields():
-        return ["Package", "Source", "Notes"]
-
-    def checkModulesDependencies(self):
-        self.modulesWorkspaceDependencies = []
-        self.modulesCoreDependencies = []
-        self.modulesNoneDependencies = []
-        isOk = True
-
-        for x in self.getRequiredModules():
-            tmpW = self.getModuleByName(x)
-            tmpC = self.core.getModuleByName(x)
-
-            if tmpW is not None:
-                self.modulesWorkspaceDependencies.append(tmpW)
-            else:
-                if tmpC is not None:
-                    self.modulesCoreDependencies.append(tmpC)
-                else:
-                    self.modulesNoneDependencies.append(x)
-                    isOk = False
-
-        return isOk
-
-    def getModulesDependenciesSummary(self):
-        table = []
-
-        for x in self.getRequiredModules():
-            tmpW = self.getModuleByName(x)
-            tmpC = self.core.getModuleByName(x)
-
-            l = CoreConsole.highlight(x)
-            s = ""
-            n = ""
-            if tmpW is not None:
-                if tmpC is None:
-                    s = "Workspace"
-                else:
-                    s = "Workspace"
-                    n = "Shadows Core"
-            else:
-                if tmpC is not None:
-                    s = "Core"
-                else:
-                    n = CoreConsole.error("Not found")
-
-            table.append([l, s, n])
-
-        return table
-
-    @staticmethod
-    def getModulesDependenciesSummaryFields():
-        return ["Module", "Source", "Notes"]
-
 
 # ENVIRONMENT VARIABLES -------------------------------------------------------
 
@@ -396,33 +129,56 @@ def ls(srcPath, verbose):
 
     isOk = True
 
-    workspace = CoreWorkspace()
-    workspace.open(coreRoot=NOVA_CORE_ROOT)
-
+    workspace = Workspace()
+    workspace.open(coreRoot=NOVA_CORE_ROOT, workspaceRoot=NOVA_WORKSPACE_ROOT)
     CoreConsole.out(CoreConsole.h1("WORKSPACE"))
 
-    if not workspace.opened:
+    if not workspace.isValid():
         CoreConsole.out(CoreConsole.error(workspace.reason))
         printSuccessOrFailure(False)
         return -1
 
     table = []
-    for m in workspace.validModuleTargets:
+    for m in workspace.validModuleTargets():
         table.append(m.getSummary(workspace.getRoot()))
 
-    for m in workspace.invalidModuleTargets:
+    for m in workspace.invalidModuleTargets():
         table.append(m.getSummary(workspace.getRoot()))
         isOk = False
 
     if len(table) > 0:
-        CoreConsole.out(CoreConsole.h2("TARGETS"))
+        CoreConsole.out(CoreConsole.h2("MODULE TARGETS"))
         CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
 
     table = []
-    for p in workspace.validPackages:
+    for m in workspace.validParameterTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+
+    for m in workspace.invalidParameterTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+        isOk = False
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h2("PARAMETER TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, ParametersTarget.getSummaryFields()))
+
+    table = []
+    for m in workspace.validParameters():
+        table.append(m.getSummary(workspace.getRoot()))
+
+    for m in workspace.invalidParameters():
+        table.append(m.getSummary(workspace.getRoot()))
+        isOk = False
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h2("PARAMETERS"))
+        CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
+
+    table = []
+    for p in workspace.coreWorkspace.validPackages:
         table.append(p.getSummary(workspace.getRoot()))
 
-    for p in workspace.invalidPackages:
+    for p in workspace.coreWorkspace.invalidPackages:
         table.append(p.getSummary(workspace.getRoot()))
         isOk = False
 
@@ -435,13 +191,13 @@ def ls(srcPath, verbose):
     if len(table) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("PACKAGE DEPENDENCIES"))
-        CoreConsole.out(CoreConsole.table(table, CoreWorkspace.getPackagesDependenciesSummaryFields()))
+        CoreConsole.out(CoreConsole.table(table, Workspace.getPackagesDependenciesSummaryFields()))
 
     table = workspace.getModulesDependenciesSummary()
     if len(table) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MODULE DEPENDENCIES"))
-        CoreConsole.out(CoreConsole.table(table, CoreWorkspace.getModulesDependenciesSummaryFields()))
+        CoreConsole.out(CoreConsole.table(table, Workspace.getModulesDependenciesSummaryFields()))
 
     if not workspace.checkPackagesDependencies():
         CoreConsole.out(CoreConsole.error("There are unmet Package dependencies: " + ", ".join(workspace.packagesNoneDependencies)))
@@ -462,18 +218,19 @@ def ls(srcPath, verbose):
 
 
 def generate(srcPath, dstPath, buildTypes, force, verbose):
+    # I know that the following is a huge heap of crap, so please do not complain about it.
     if not verbose:
         CoreConsole.debug = False
         CoreConsole.verbose = False
 
     isOk = True
 
-    workspace = CoreWorkspace()
-    workspace.open(coreRoot=NOVA_CORE_ROOT)
+    workspace = Workspace()
+    workspace.open(coreRoot=NOVA_CORE_ROOT, workspaceRoot=NOVA_WORKSPACE_ROOT)
 
     CoreConsole.out(CoreConsole.h1("WORKSPACE"))
 
-    if not workspace.opened:
+    if not workspace.isValid():
         CoreConsole.out(CoreConsole.error(workspace.reason))
         printSuccessOrFailure(False)
         return -1
@@ -500,7 +257,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
     table = []
     for x in workspace.packagesCoreDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Core Package dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generatePackage(os.path.join(workspace.core.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose, False)
+        res = generatePackage(os.path.join(workspace.core.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose, False, None, workspace.getRoot())
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -508,7 +265,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
     for x in workspace.packagesWorkspaceDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Workspace Package dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generatePackage(os.path.join(workspace.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose, True)
+        res = generatePackage(os.path.join(workspace.getPackagesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "packages"), True, args.verbose, True, workspace.getRoot(), workspace.getRoot())
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -521,7 +278,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
     for x in workspace.modulesCoreDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Core Module dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generateModule(os.path.join(workspace.core.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose, False)
+        res = generateModule(os.path.join(workspace.core.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose, False, None, workspace.getRoot())
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -529,7 +286,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
     for x in workspace.modulesWorkspaceDependencies:
         CoreConsole.out(Fore.MAGENTA + "Generating Workspace Module dependency: " + Style.BRIGHT + x.name + Style.RESET_ALL)
-        res = generateModule(os.path.join(workspace.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose, True)
+        res = generateModule(os.path.join(workspace.coreWorkspace.getModulesRoot(), x.name), os.path.join(workspace.getGeneratedPath(), "modules"), True, args.verbose, True, workspace.getRoot(), workspace.getRoot())
         if res != 0:
             isOk = False
             CoreConsole.out(str(res))
@@ -542,7 +299,22 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
     # --- NOW THE TARGETS ---------------------------------------------------------
 
-    for m in workspace.validModuleTargets:
+    table = []
+    for p in workspace.validParameterTargets():
+        p.generate(workspace, os.path.join(workspace.getGeneratedPath(), "params"), os.path.join(workspace.getBuildPath(), "params"))
+        table.append(p.getSummaryGenerate(workspace.getRoot(), workspace.getRoot()))
+
+        if not p.generated:
+            isOk = False
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h1("GENERATED PARAMETERS TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, ParametersTarget.getSummaryFieldsGenerate()))
+
+    table = []
+    for m in workspace.validModuleTargets():
+        targetSuccess = True
+
         target_root = os.path.join(workspace.getSourcesPath(), "targets", m.name)
 
         mustGenerate = True
@@ -563,7 +335,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
         cm = workspace.core.getModuleByName(m.module)  # Find the required core module,,,
         if cm is None:
-            cm = workspace.getModuleByName(m.module)
+            cm = workspace.coreWorkspace.getModuleByName(m.module)
 
         # ECLIPSE WORKAROUND BEGIN
         eclipse_workaround = os.environ.get("NOVA_CORE_ECLIPSE_LINK_FILES")
@@ -603,101 +375,142 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
                     os.remove(packageDst)
 
                 os.symlink(packageSrc, packageDst)  # Make links for Eclipse
-            # ECLIPSE WORKAROUND END
+                # ECLIPSE WORKAROUND END
 
         executeCmake = True
 
         m.generate(target_root, not mustGenerate)
-        if not m.generated:
+        if m.generated:
+            fields = [CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate)]
+            headers = ["Name", "Description", "CoreModule", "Chip", "OS Version", "CMakeLists", "Generated CMakeLists"]
+        else:
             executeCmake = False
             isOk = False
+            targetSuccess = False
+            fields = [CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, CoreConsole.error(m.reason), str(mustGenerate)]
+            headers = ["Name", "Description", "CoreModule", "Chip", "OS Version", "CMakeLists", "Generated CMakeLists"]
 
         for buildType in buildTypes:
-            dest = os.path.join(workspace.getBuildPath(), buildType)
-            if not os.path.isdir(dest):
-                os.mkdir(dest)
-            dest = os.path.join(workspace.getBuildPath(), buildType, m.name)
-            if not os.path.isdir(dest):
-                os.mkdir(dest)
-
-            cmakeSuccess = True
-            if executeCmake:
-                (source, dummy) = os.path.split(m.source)
-
-                cmake_cmd = cmakeCommand(cm.chip, source, buildType, m.os_version, workspace.getRoot())
-
-                try:
-                    CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
-
-                    out = subprocess.check_output(cmake_cmd, shell=True, cwd=dest)
-                    if verbose:
-                        CoreConsole.out(out)
-                except subprocess.CalledProcessError as outException:
-                    CoreConsole.out("CMake subprocess failed")
-                    cmakeSuccess = False
-                    isOk = False
-
-            dest = os.path.relpath(dest, workspace.getRoot())
+            headers += ["Build (" + buildType + ")", "CMake (" + buildType + ")"]
 
             if m.generated:
-                if cmakeSuccess:
-                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate), dest, "Success"])
-                else:
-                    table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate), dest, CoreConsole.error("CMake error... Try executing with --verbose")])
+                dest = os.path.join(workspace.getBuildPath(), buildType)
+                if not os.path.isdir(dest):
+                    os.mkdir(dest)
+                dest = os.path.join(workspace.getBuildPath(), buildType, m.name)
+                if not os.path.isdir(dest):
+                    os.mkdir(dest)
+
+                if executeCmake:
+                    (source, dummy) = os.path.split(m.source)
+
+                    cmake_cmd = cmakeCommand(cm.chip, source, buildType, m.os_version, workspace.getRoot())
+
+                    try:
+                        CoreConsole.info(Fore.MAGENTA + cmake_cmd + Fore.RESET)
+
+                        out = subprocess.check_output(cmake_cmd, shell=True, cwd=dest)
+                        if verbose:
+                            CoreConsole.out(out)
+
+                        fields += [os.path.relpath(dest, workspace.getRoot()), "OK"]
+                    except subprocess.CalledProcessError as e:
+                        CoreConsole.out("CMake subprocess failed")
+                        isOk = False
+                        targetSuccess = False
+                        fields += [os.path.relpath(dest, workspace.getRoot()), CoreConsole.error("CMake error. Try with --verbose")]
+                    except BaseException as e:
+                        fields += [os.path.relpath(dest, workspace.getRoot()), CoreConsole.error("Unexpected error: " + repr(e))]
+                        isOk = False
+                        targetSuccess = False
             else:
-                table.append([CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, m.reason, str(mustGenerate), dest, ""])
+                fields += ["---", "---"]
+        try:
+            eclipse_template = os.path.join(cm.moduleRoot, "eclipse_template")
+            if os.path.isdir(eclipse_template):
+                if not os.path.exists(os.path.join(target_root, ".project")):
+                    src = open(os.path.join(eclipse_template, ".project"))
+                    data = src.read()
+                    src.close()
+                    data = data.replace("@@NAME@@", m.name)
+                    sink = open(os.path.join(target_root, ".project"), 'w')
+                    sink.write(data)
+                    sink.close()
 
-                # ----------------------------------------------------------------------------------------------------------------------
+                if not os.path.exists(os.path.join(target_root, ".cproject")):
+                    src = open(os.path.join(eclipse_template, ".cproject"))
+                    data = src.read()
+                    src.close()
+                    data = data.replace("@@NAME@@", m.name)
+                    data = data.replace("@@NOVA_CORE_ROOT@@", NOVA_CORE_ROOT)
+                    sink = open(os.path.join(target_root, ".cproject"), 'w')
+                    sink.write(data)
+                    sink.close()
 
-        eclipse_template = os.path.join(cm.moduleRoot, "eclipse_template")
-        if os.path.isdir(eclipse_template):
-            if not os.path.exists(os.path.join(target_root, ".project")):
-                src = open(os.path.join(eclipse_template, ".project"))
-                data = src.read()
-                src.close()
-                data = data.replace("@@NAME@@", m.name)
-                sink = open(os.path.join(target_root, ".project"), 'w')
-                sink.write(data)
-                sink.close()
+                tmp = "@@NAME@@-Debug.launch".replace("@@NAME@@", m.name)
+                if not os.path.exists(os.path.join(target_root, tmp)):
+                    src = open(os.path.join(eclipse_template, "@@NAME@@-Debug.launch"))
+                    data = src.read()
+                    src.close()
+                    data = data.replace("@@NAME@@", m.name)
+                    data = data.replace("@@BUILD_PATH@@", workspace.getBuildPath())
+                    sink = open(os.path.join(target_root, tmp), 'w')
+                    sink.write(data)
+                    sink.close()
 
-            if not os.path.exists(os.path.join(target_root, ".cproject")):
-                src = open(os.path.join(eclipse_template, ".cproject"))
-                data = src.read()
-                src.close()
-                data = data.replace("@@NAME@@", m.name)
-                data = data.replace("@@NOVA_CORE_ROOT@@", NOVA_CORE_ROOT)
-                sink = open(os.path.join(target_root, ".cproject"), 'w')
-                sink.write(data)
-                sink.close()
+                tmp = "@@NAME@@-Release.launch".replace("@@NAME@@", m.name)
+                if not os.path.exists(os.path.join(target_root, tmp)):
+                    src = open(os.path.join(eclipse_template, "@@NAME@@-Release.launch"))
+                    CoreConsole.info("Template " + repr(src))
+                    data = src.read()
+                    src.close()
+                    data = data.replace("@@NAME@@", m.name)
+                    data = data.replace("@@BUILD_PATH@@", workspace.getBuildPath())
+                    sink = open(os.path.join(target_root, tmp), 'w')
+                    sink.write(data)
+                    sink.close()
 
-            tmp = "@@NAME@@-Debug.launch".replace("@@NAME@@", m.name)
-            if not os.path.exists(os.path.join(target_root, tmp)):
-                src = open(os.path.join(eclipse_template, "@@NAME@@-Debug.launch"))
-                data = src.read()
-                src.close()
-                data = data.replace("@@NAME@@", m.name)
-                data = data.replace("@@BUILD_PATH@@", workspace.getBuildPath())
-                sink = open(os.path.join(target_root, tmp), 'w')
-                sink.write(data)
-                sink.close()
+                fields += ["OK"]
+                headers += ["Eclipse files"]
+            else:
+                fields += ["Skip"]
+                headers += ["Eclipse files"]
+        except IOError as e:
+            fields += [CoreConsole.error(str(e.strerror) + " [" + CoreConsole.highlightFilename(e.filename) + "]")]
+            headers += ["Eclipse files"]
+            targetSuccess = False
 
-            tmp = "@@NAME@@-Release.launch".replace("@@NAME@@", m.name)
-            if not os.path.exists(os.path.join(target_root, tmp)):
-                src = open(os.path.join(eclipse_template, "@@NAME@@-Release.launch"))
-                data = src.read()
-                src.close()
-                data = data.replace("@@NAME@@", m.name)
-                data = data.replace("@@BUILD_PATH@@", workspace.getBuildPath())
-                sink = open(os.path.join(target_root, tmp), 'w')
-                sink.write(data)
-                sink.close()
+        if targetSuccess:
+            fields += [CoreConsole.success("OK")]
+            headers += ["Status"]
+        else:
+            fields += [CoreConsole.fail("FAIL")]
+            headers += ["Status"]
 
-    for m in workspace.invalidModuleTargets:
-        table.append([CoreConsole.error(m.filename), CoreConsole.error(m.reason), "", "", "", ""])
+        table.append(fields)
 
     if len(table) > 0:
-        CoreConsole.out(CoreConsole.h1("GENERATED TARGETS"))
-        CoreConsole.out(CoreConsole.table(table, ["Name", "Description", "CoreModule", "Chip", "OS Version", "CMakeLists", "Generated CMakeLists", "Build", "CMake"]))
+        CoreConsole.out(CoreConsole.h1("GENERATED MODULE TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, headers))
+
+    # INVALID STUFF
+    table = []
+    for m in workspace.invalidModuleTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h1("INVALID MODULE TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
+        isOk = False
+
+    table = []
+    for p in workspace.invalidParameterTargets():
+        table.append(p.getSummary(workspace.getRoot()))
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h1("INVALID PARAMETERS TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, ParametersTarget.getSummaryFields()))
+        isOk = False
 
     printSuccessOrFailure(isOk)
 
@@ -736,14 +549,16 @@ def initialize(force, verbose):
         # create directories
         mkdir(os.path.join(root, "src"))
         mkdir(os.path.join(root, "src", "targets"))
-        mkdir(os.path.join(root, "src", "params"))
         mkdir(os.path.join(root, "src", "packages"))
+        mkdir(os.path.join(root, "src", "params"))
         mkdir(os.path.join(root, "generated"))
         mkdir(os.path.join(root, "generated", "modules"))
         mkdir(os.path.join(root, "generated", "packages"))
+        mkdir(os.path.join(root, "generated", "params"))
         mkdir(os.path.join(root, "build"))
         mkdir(os.path.join(root, "build", "debug"))
         mkdir(os.path.join(root, "build", "release"))
+        mkdir(os.path.join(root, "build", "params"))
 
         CoreConsole.out("Workspace initialized.")
         CoreConsole.out("You can now do a 'source setup.sh'")
@@ -776,7 +591,7 @@ def target_add(module_name, name):
         printSuccessOrFailure(False)
         return -1
 
-    for target in workspace.validModuleTargets:
+    for target in workspace._validModuleTargets():
         if target.name == name:
             CoreConsole.out(CoreConsole.error("Target '" + name + "' already defined"))
             CoreConsole.out("")

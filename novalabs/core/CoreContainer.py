@@ -3,19 +3,17 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from CorePackage import *
-from CoreModule import *
-from ModuleTarget import *
+from .CorePackage import *
+from .CoreModule import *
 
 class CoreContainer:
     def __init__(self):
         self.invalidModules = []
         self.validModules = []
-        self.validPackages = []
         self.invalidPackages = []
-        self.validModuleTargets = []
-        self.invalidModuleTargets = []
+        self.validPackages = []
 
+# --- PACKAGES ----------------------------------------------------------------
     def listPackages(self):
         path = self.getPackagesRoot()
 
@@ -57,8 +55,9 @@ class CoreContainer:
 
         return None
 
+# --- MODULES ----------------------------------------------------------------
     def listModules(self):
-        path=self.getModulesRoot()
+        path = self.getModulesRoot()
 
         dirs = listDirectories(path, fullpath=True)
 
@@ -97,34 +96,3 @@ class CoreContainer:
                 return x
 
         return None
-
-    def listModuleTargets(self):
-        path=self.getModuleTargetsRoot()
-
-        dirs = listDirectories(path, fullpath=True)
-
-        tmp = []
-
-        for x in dirs:
-            if ModuleTarget.check(x):
-                tmp.append(x)
-
-        if tmp is not None:
-            tmp.sort()
-
-        return tmp
-
-    def openModuleTargets(self):
-        list = self.listModuleTargets()
-
-        self.validModuleTargets = []
-        self.invalidModuleTargets = []
-
-        for x in list:
-            m = ModuleTarget()
-            if m.open(x):
-                self.validModuleTargets.append(m)
-            else:
-                self.invalidModuleTargets.append(m)
-
-        return self.validModuleTargets

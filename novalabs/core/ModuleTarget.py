@@ -3,7 +3,7 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from CoreModule import *
+from .CoreUtils import *
 
 class ModuleTarget:
     schema = '{ "type": "record", "name": "ModuleTarget", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "module", "type": "string" },  {"name": "os_version", "type": ["null", { "type": "enum", "name": "OSVersion", "symbols" : ["CHIBIOS_3", "CHIBIOS_16"]}]}, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "sources", "type": { "type": "array", "items": "string" } }, { "name": "includes", "type": { "type": "array", "items": "string" } } ] }'
@@ -12,7 +12,7 @@ class ModuleTarget:
     def __init__(self):
         self.workspace = None
 
-        self.filename = ""
+        self.targetName = ""
         self.root = None
         self.moduleTargetRoot = None
         self.source = ""
@@ -44,7 +44,7 @@ class ModuleTarget:
 
         try:
             self.data = loadAndValidateJson(jsonFile, ModuleTarget.schema)
-            if self.filename == self.data["name"]:
+            if self.targetName == self.data["name"]:
                 self.source = jsonFile
                 self.name = self.data["name"]
                 self.description = self.data["description"]
@@ -70,14 +70,15 @@ class ModuleTarget:
                 CoreConsole.ok("ModuleTarget:: valid")
 
                 self.valid = True
+
+                return True
             else:
                 raise CoreError("Target filename/name mismatch", jsonFile)
         except CoreError as e:
-            self.reason = str(e.value)
+            self.reason = str(e)
             CoreConsole.fail("ModuleTarget::openJSON: " + self.reason)
-            return False
 
-        return True
+        return False
 
     def getRoot(self, cwd = None):
         if self.root is None:  # Check for cached value
@@ -91,7 +92,7 @@ class ModuleTarget:
         return self.root
 
     def open(self, root=None, name=None):
-        self.valid = False
+        self.__init__()
 
         CoreConsole.info("ModuleTarget::open(" + str(root) + ", " + str(name) + ")")
 
@@ -109,14 +110,15 @@ class ModuleTarget:
             return False
 
         self.root = root
-        self.filename = name
+        self.targetName = name
 
         filename = os.path.join(self.moduleTargetRoot, "MODULE_TARGET.json")
 
         try:
             return self.openJSON(filename)
         except CoreError as e:
-            CoreConsole.fail("ModuleTarget::open " + CoreConsole.highlightFilename(filename) + ": " + str(e.value))
+            self.reason = str(e)
+            CoreConsole.fail("ParametersTarget::open " + self.reason)
 
         self.valid = False
         return False
@@ -147,10 +149,9 @@ class ModuleTarget:
             except IOError as e:
                 self.reason = CoreConsole.error(str(e.strerror) + " [" + CoreConsole.highlightFilename(e.filename) + "]")
                 CoreConsole.fail("ModuleTarget::generate: " + self.reason)
-        else:
-            return False
 
-        return True
+        return False
+
 
     def process(self):
         self.buffer = []
@@ -213,14 +214,14 @@ class ModuleTarget:
             src = os.path.relpath(self.moduleTargetRoot, relpath)
 
         if self.valid:
-            return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src]
+            return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.success("OK")]
         else:
-            return ["", CoreConsole.error(self.reason), "", "", src]
+            return ["", "", "", "", src, CoreConsole.error(self.reason)]
 
 
     @staticmethod
     def getSummaryFields():
-        return ["Name", "Description", "Module", "OS Version", "Root"]
+        return ["Name", "Description", "Module", "OS Version", "Root", "Status"]
 
 
     def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
@@ -247,23 +248,3 @@ class ModuleTarget:
     def getSummaryFieldsGenerate():
         return ["Name", "Description", "Module", "OS Version", "Root", "Generate"]
 
-
-    # @staticmethod
-    # def createJSON(root):
-    #     buffer = []
-    #
-    #     buffer.append('{')
-    #     buffer.append('    "name": "xxx",')
-    #     buffer.append('    "description": "XXX",')
-    #     buffer.append('    "module": "xxx",')
-    #     buffer.append('    "required_packages": [')
-    #     buffer.append('    ],')
-    #     buffer.append('    "sources": [')
-    #     buffer.append('        "main.cpp"')
-    #     buffer.append('    ],')
-    #     buffer.append('    "includes": []')
-    #     buffer.append('}')
-    #
-    #     sink = open(os.path.join(root, "MODULE_TARGET.json"), 'w')
-    #
-    #     sink.write("\n".join(buffer))

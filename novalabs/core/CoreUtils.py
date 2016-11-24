@@ -9,7 +9,9 @@ import os
 import numbers
 import ctypes
 from json import loads
-from CoreConsole import *
+
+from .CoreConsole import *
+
 
 TypeFormatMap = {
     "TIMESTAMP": "Q",
@@ -59,7 +61,7 @@ def checkCTypeValueForCoreType(type, size, value):
                 if isinstance(value, str):
                     if len(value) <= size:
                         return [bytes(value, "ascii")]
-                return False
+                return None
             else:
                 if len(value) != size:
                     return None
@@ -210,6 +212,11 @@ def listFilesByAndStripExtension(path, extension):
     tmp.sort()
     return tmp
 
+def loadJson(filename):
+    try:
+        return loads(open(filename, 'r').read())
+    except IOError as e:
+        raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
 
 def loadAndValidateJson(filename, schemaJSON):
     schema = parse(schemaJSON)

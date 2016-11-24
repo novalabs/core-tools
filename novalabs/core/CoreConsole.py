@@ -5,16 +5,15 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from __future__ import print_function
 import os
+import re
 from colorama import Fore, Back, Style
 from tabulate import tabulate
-import re
 
 class CoreConsole:
     enabled = True
     debug = True
-    verbose = False;
+    verbose = False
 
     f = None
 
@@ -70,6 +69,14 @@ class CoreConsole:
         return p + "/" + CoreConsole.highlight(f)
 
     @staticmethod
+    def success(message):
+        return Style.RESET_ALL + Fore.GREEN + Style.BRIGHT + message + Style.RESET_ALL
+
+    @staticmethod
+    def fail(message):
+        return Style.RESET_ALL + Fore.RED + Style.BRIGHT + message + Style.RESET_ALL
+
+    @staticmethod
     def error(message):
         return Back.RED + Style.BRIGHT + message + Style.RESET_ALL
 
@@ -122,16 +129,41 @@ class CoreConsole:
     def h1(message, w=80):
         visible = re.sub(CoreConsole._invisible_codes, "", message)
 
-        tmp = '╒' + ('═' * (w - 2)) + '╕'
+        tmp = "= " + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL
         tmp += "\n"
-        tmp += '│ ' + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL + (' ' * (w - 3 - len(visible))) + '│'
-        tmp += "\n"
-        tmp += '╘' + ('═' * (w - 2)) + '╛'
+
         return tmp
 
     @staticmethod
-    def h2(message, w=80):
+    def h1xx(message, w=80):
         visible = re.sub(CoreConsole._invisible_codes, "", message)
 
-        tmp = '=== ' + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL + ' ' + ('=' * (w - 5 - len(visible)))
+        tmp = '+' + ('-' * (w - 2)) + '+'
+        tmp += "\n"
+        tmp += '| ' + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL + (' ' * (w - 3 - len(visible))) + '|'
+        tmp += "\n"
+        tmp += '+' + ('-' * (w - 2)) + '+'
+        return tmp
+
+
+    @staticmethod
+    def h2(message, w=80):
+        tmp = '== ' + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL
+        tmp += "\n"
+        return tmp
+
+    @staticmethod
+    def h2xx(message, w=80):
+        visible = re.sub(CoreConsole._invisible_codes, "", message)
+        tmp = "\n"
+        tmp += '== ' + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL + ' ' + ('=' * (w - 4 - len(visible)))
+        tmp += "\n"
+        return tmp
+
+
+    @staticmethod
+    def h3(message, w=80):
+        visible = re.sub(CoreConsole._invisible_codes, "", message)
+
+        tmp = '------ ' + Fore.BLUE + message + Style.RESET_ALL + ' ' + ('-' * (w - 8 - len(visible)))
         return tmp

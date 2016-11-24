@@ -3,7 +3,7 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
-from CoreUtils import *
+from .CoreUtils import *
 
 
 class CoreMessage:
@@ -59,6 +59,8 @@ class CoreMessage:
         return True
 
     def open(self, name, package=None):
+        self.__init__()
+
         if package is not None:
             jsonFile = package.getMessageFile(name)
         else:
