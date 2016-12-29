@@ -550,6 +550,7 @@ def initialize(force, verbose):
         mkdir(os.path.join(root, "src"))
         mkdir(os.path.join(root, "src", "targets"))
         mkdir(os.path.join(root, "src", "packages"))
+        mkdir(os.path.join(root, "src", "modules"))
         mkdir(os.path.join(root, "src", "params"))
         mkdir(os.path.join(root, "generated"))
         mkdir(os.path.join(root, "generated", "modules"))
@@ -583,15 +584,15 @@ def target_add(module_name, name):
 
     isOk = True
 
-    workspace = CoreWorkspace()
-    workspace.open(coreRoot=NOVA_CORE_ROOT)
+    workspace = Workspace()
+    workspace.open(coreRoot=NOVA_CORE_ROOT, workspaceRoot=NOVA_WORKSPACE_ROOT)
 
-    if not workspace.opened:
+    if not workspace.isValid():
         CoreConsole.out(CoreConsole.error(workspace.reason))
         printSuccessOrFailure(False)
         return -1
 
-    for target in workspace._validModuleTargets():
+    for target in workspace.validModuleTargets():
         if target.name == name:
             CoreConsole.out(CoreConsole.error("Target '" + name + "' already defined"))
             CoreConsole.out("")
@@ -603,7 +604,7 @@ def target_add(module_name, name):
     if os.path.isdir(target_root):
         shutil.rmtree(target_root)
 
-    module = workspace.getModuleByName(module_name)
+    module = workspace.coreWorkspace.getModuleByName(module_name)
     if module is not None:
         CoreConsole.out("Using Workspace module '" + module_name + "'")
     else:
