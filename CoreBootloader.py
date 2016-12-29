@@ -4,13 +4,11 @@
 import sys, os, threading, struct
 import logging
 import argparse
-import Queue
 
-from click.decorators import command
+import novalabs.core.MW as MW
+from novalabs.misc.helpers import *
+from novalabs.misc.crc import *
 
-import novalabs.core.MW
-
-from helpers import *
 from time import sleep
 #==============================================================================
 
@@ -76,6 +74,14 @@ def _create_argsparser():
     parser_erase_config.add_argument('what', nargs=1, help="[program|configuration|all]", default='program').completer = erase_completer
     parser_erase_config.add_argument('uid', nargs=1, help="UID", default=None)
 
+    parser_write_name = subparsers.add_parser('name', help='Write the module name')
+    parser_write_name.add_argument('uid', nargs=1, help="UID", default=None)
+    parser_write_name.add_argument('name', nargs=1, help="NAME", default=None)
+
+    parser_read = subparsers.add_parser('read', help='Write the module name')
+    parser_read.add_argument('uid', nargs=1, help="UID", default=None)
+    parser_read.add_argument('address', nargs=1, help="ADDRESS", default=None)
+
     return parser
 
 #==============================================================================
@@ -84,11 +90,11 @@ def hexdump_list(l):
     return (''.join(format(x, '02x') for x in l))
 
 def boot(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    while Core.MW.ok():
+    while MW.ok():
         sleep(0.25)
         bl.bootload()
 
@@ -97,14 +103,14 @@ def boot(mw, transport, args):
     return 0
 
 def ls(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
     if args.interactive:
-        while Core.MW.ok():
-            print "------------------------"
+        while MW.ok():
+            print("------------------------")
             for k in bl.getSlaves():
-                print hexdump_list(k) + ', ' +  bl._slavesTypes[k] + ', ' +  bl._slavesNames[k]
+                print(hexdump_list(k) + ', ' +  bl._slavesTypes[k] + ', ' +  bl._slavesNames[k])
                 pass
 
             bl.clear()
@@ -112,18 +118,18 @@ def ls(mw, transport, args):
     else:
         sleep(3)
         for k in bl.getSlaves():
-            print hexdump_list(k)
+            print(hexdump_list(k))
 
     bl.stop()
 
     return 0
 
 def identify(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
     retval = 1
 
@@ -135,11 +141,11 @@ def identify(mw, transport, args):
     return retval
 
 def select(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
     retval = 1
 
@@ -151,11 +157,11 @@ def select(mw, transport, args):
     return retval
 
 def deselect(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
     retval = 1
 
@@ -167,11 +173,11 @@ def deselect(mw, transport, args):
     return retval
 
 def eraseProgram(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
     retval = 1
 
@@ -183,39 +189,39 @@ def eraseProgram(mw, transport, args):
     return retval
 
 def erase(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
     retval = 1
 
     if not bl.select(uid):
-        print "Cannot select device"
+        print("Cannot select device")
         return 1
 
     what = args.what[0]
     if what == 'program':
         if not bl.eraseProgram(uid):
-            print "Cannot erase program"
+            print("Cannot erase program")
             return 1
 
     if what == 'configuration':
         if not bl.eraseUserConfiguration(uid):
-            print "Cannot erase user configuration"
+            print("Cannot erase user configuration")
             return 1
 
     if what == 'all':
         if not bl.eraseConfiguration(uid):
-            print "Cannot erase configuration"
+            print("Cannot erase configuration")
             return 1
         if not bl.eraseProgram(uid):
-            print "Cannot erase program"
+            print("Cannot erase program")
             return 1
 
     if not bl.deselect(uid):
-        print "Cannot deselect device"
+        print("Cannot deselect device")
         return 1
 
     bl.stop()
@@ -223,72 +229,160 @@ def erase(mw, transport, args):
     return retval
 
 def reset(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
     retval = 1
 
+    if not bl.select(uid):
+        print("Cannot select device")
+        return 1
+
     if bl.reset(uid):
         retval = 0
+
+    bl.deselect(MW.BootMsg.UID.getUIDFromHexString('000000000000000000000000'))
 
     bl.stop()
 
     return retval
 
 def load(mw, transport, args):
-    bl = Core.MW.Bootloader()
+    bl = MW.Bootloader()
     bl.start()
     sleep(1)
 
     retval = 1
 
-    uid = Core.MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
     ihex_file = args.file[0]
 
+    if not uid in bl.getSlaves():
+        print("Device is not in bootload mode")
+        return 1
+
+    programSize = bl.getSlavesProgramStorageSize(uid)
+    print(programSize)
+    from intelhex import IntelHex
+
+    ih = IntelHex()
+    ih.loadfile(ihex_file, format="hex")
+    ih.padding = 0xFF
+    bin = ih.tobinarray(size = programSize)
+    crc = stm32_crc32_bytes(0xffffffff, bin)
+    print(hex(crc))
+
+
     if not bl.select(uid):
-        print "Cannot select device"
+        print("Cannot select device")
         return 1
 
     what = args.what[0]
     if what == 'program':
         if not bl.eraseProgram(uid):
-            print "Cannot erase program"
+            print("Cannot erase program")
             return 1
 
     with open(ihex_file) as f:
         data = f.read().splitlines()
 
-    type = Core.MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
+    type = MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
     if not bl.ihex(type, ""):
-        print "Cannot write IHEX data"
+        print("Cannot write IHEX data")
         return 1
 
     l = 0
     for line in data:
-        type = Core.MW.BootMsg.IHEX.IHexTypeEnum.DATA
-        print "%d of %d" % (l, len(data))
+        type = MW.BootMsg.IHEX.IHexTypeEnum.DATA
+        print("%d of %d" % (l, len(data)))
 
         l += 1
 
-        print line
+        print(line)
 
         if not bl.ihex(type, line):
-            print "Cannot write IHEX data"
+            print("Cannot write IHEX data")
             return 1
 
-    type = Core.MW.BootMsg.IHEX.IHexTypeEnum.END
+    type = MW.BootMsg.IHEX.IHexTypeEnum.END
     if not bl.ihex(type, ""):
-        print "Cannot write IHEX data"
+        print("Cannot write IHEX data")
         return 1
 
-    if not bl.deselect(uid):
-        print "Cannot deselect device"
+    if what == 'program':
+        if not bl.write_program_crc(uid, crc):
+            print("Cannot write CRC")
+            return 1
+
+    bl.deselect(uid)
+
+    bl.stop()
+
+    return retval
+
+def name(mw, transport, args):
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 1
+
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    name = args.name[0]
+
+    if len(name) > 16:
+        print("Name must be at most 16 bytes long")
         return 1
 
-    bl.reset(uid) # No ack possible...
+    if not bl.select(uid):
+        print("Cannot select device")
+        return 1
+
+    if not bl.write_name(uid, name):
+        print("Cannot write module name")
+        return 1
+
+    bl.deselect(uid)
+
+#    bl.select("000000000000000000000000")
+#    if not bl.deselect(uid):
+#        print("Cannot deselect device")
+#        return 1
+
+
+    bl.stop()
+
+    return retval
+
+def read(mw, transport, args):
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 1
+
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+#    address = 0x08000000 + 20480 + 2048 +2048
+    address = int(args.address[0])
+
+    if not bl.select(uid):
+        print("Cannot select device")
+        return 1
+
+    if not bl.ihex_read(uid, address):
+        print("Cannot write module name")
+        return 1
+
+    bl.deselect(uid)
+
+#    bl.select("000000000000000000000000")
+#    if not bl.deselect(uid):
+#        print("Cannot deselect device")
+#        return 1
+
 
     bl.stop()
 
@@ -305,10 +399,10 @@ def _main():
     # TODO: Automate transport construction from "--transport" args
     assert args.transport[0] == 'DebugTransport'
     assert args.transport[1] == 'SerialLineIO'
-    lineio = Core.MW.SerialLineIO(str(args.transport[2]), int(args.transport[3]))
-    transport = Core.MW.DebugTransport('dbgtra', lineio)
+    lineio = MW.SerialLineIO(str(args.transport[2]), int(args.transport[3]))
+    transport = MW.DebugTransport('dbgtra', lineio)
 
-    mw = Core.MW.Middleware.instance()
+    mw = MW.Middleware.instance()
     mw.initialize()
     transport.open()
 
@@ -335,6 +429,12 @@ def _main():
 
     if args.action == 'erase':
         retval = erase(mw, transport, args)
+
+    if args.action == 'name':
+        retval = name(mw, transport, args)
+
+    if args.action == 'read':
+        retval = read(mw, transport, args)
 
     mw.uninitialize()
     transport.close()

@@ -6,6 +6,7 @@
 from .CoreWorkspace import *
 from .CoreUtils import *
 from intelhex import IntelHex
+import struct
 
 class Parameters:
     schema = '{"type":"record","name":"Parameters","fields":[{"name":"name","type":"string"},{"name":"description","type": "string"},{"name":"objects","type":{"type":"array","items":{"type":"record","name":"ObjectParameters","fields":[{"name":"object","type":"string"},{"name":"package","type":"string"},{"name":"parameters","type":"string"}]}}}]}'
@@ -122,9 +123,11 @@ class Parameters:
 
                 buffer = bytearray()
 
+                buffer.extend(struct.pack('<L', len(self.objects)))
+
                 for obj in self.objects:
                     p = workspace.getCoreConfiguration(obj["package"], obj["parameters"])
-                    bin, size = p.pack(parametersTarget.getObject(obj['object']))
+                    bin, size = p.pack(parametersTarget.getObject(obj['object']), obj["object"])
 
                     if bin is None:
                         self.reason = obj['object'] + ": " +  p.reason
