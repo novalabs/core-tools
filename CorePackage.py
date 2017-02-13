@@ -8,6 +8,7 @@
 
 import argparse
 import argcomplete
+import io
 
 from novalabs.core.CorePackage import *
 
@@ -110,6 +111,8 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
         printSuccessOrFailure(False)
         return -1
 
+    #TODO move the following inside CorePackage class...
+
     # --- Generate configurations -------------------------------------------------
     table = []
     tmp = package.listConfigurationFiles()
@@ -144,6 +147,15 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
         CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFieldsGenerate()))
+    # -----------------------------------------------------------------------------
+
+    # --- Generate documentatio ---------------------------------------------------
+    docs = listFilesByExtension(os.path.join(targetPath, package.name, "doc"), "adoc")
+    nodesDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "nodes"), "adoc")
+    paramsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "params"), "adoc")
+    msgsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "msgs"), "adoc")
+
+    print(docs)
     # -----------------------------------------------------------------------------
 
     printSuccessOrFailure(isOk)

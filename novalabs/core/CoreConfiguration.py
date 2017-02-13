@@ -25,7 +25,9 @@ class CoreConfiguration:
         self.namespace = ""
         self.description = ""
 
-        self.destination = ""
+        self.hppDestination = ""
+        self.cppDestination = ""
+        self.docDestination = ""
 
         self.orderedFields = []
         self.buffer = []
@@ -109,6 +111,9 @@ class CoreConfiguration:
         if not self.generateSource(path):
             return False
 
+        if not self.generateDocumentation(path):
+            return False
+
         for field in self.data['fields']:
             if len(field['name']) > 23:
                 self.reason = "Field name " + field['name'] + " is too long"
@@ -133,14 +138,14 @@ class CoreConfiguration:
                     if not os.path.isdir(path):
                         os.makedirs(path)
 
-                    self.destination = os.path.join(path, (self.name + ".hpp"))
+                    self.hppDestination = os.path.join(path, (self.name + ".hpp"))
 
                     self.processHeader()
 
-                    sink = open(self.destination, 'w')
+                    sink = open(self.hppDestination, 'w')
                     sink.write("\n".join(self.buffer))
 
-                    CoreConsole.ok("CoreConfiguration::generateHeader " + CoreConsole.highlightFilename(self.destination))
+                    CoreConsole.ok("CoreConfiguration::generateHeader " + CoreConsole.highlightFilename(self.hppDestination))
 
                     self.generated = True
 
@@ -172,14 +177,14 @@ class CoreConfiguration:
                     if not os.path.isdir(path):
                         os.makedirs(path)
 
-                    self.destination = os.path.join(path, (self.name + ".cpp"))
+                    self.cppDestination = os.path.join(path, (self.name + ".cpp"))
 
                     self.processSource()
 
-                    sink = open(self.destination, 'w')
+                    sink = open(self.cppDestination, 'w')
                     sink.write("\n".join(self.buffer))
 
-                    CoreConsole.ok("CoreConfiguration::generateSource " + CoreConsole.highlightFilename(self.destination))
+                    CoreConsole.ok("CoreConfiguration::generateSource " + CoreConsole.highlightFilename(self.cppDestination))
 
                     self.generated = True
 
@@ -217,6 +222,9 @@ class CoreConfiguration:
                             self.signatureBuffer.append(str(field['size']))
 
                             field['default'] = None
+
+                            if not 'notes' in field:
+                                field['notes'] = None
 
                             if self.defaultData is not None:
                                 if field['name'] in self.defaultData:
@@ -362,6 +370,57 @@ class CoreConfiguration:
             self.buffer.append('}')
         self.buffer.append('')
 
+    def __processDocumentationPreamble(self):
+        t = """
+[[anchor_params-{namespace}::{data[name]}]]
+=== {namespace}::{data[name]}
+_{data[description]}_
+"""
+        s = SuperFormatter()
+        self.buffer.append(s.format(t, namespace=self.namespace, data=self.data))
+
+    def __processDocumentationEnd(self):
+        tmp, dummy = os.path.splitext(self.source)
+        addDocFile = tmp + ".adoc"
+
+        if os.path.exists(addDocFile):
+            with open(addDocFile, "r") as f:
+                t = f.read()
+                s = SuperFormatter()
+                self.buffer.append(s.format(t, namespace=self.namespace, name=self.data['name'], provider=self.package.provider, package=self.package.name, fqn=self.namespace + "::" + self.data['name']))
+
+    def __processDocumentationFields(self):
+        t_begin = """
+[cols="20,62,10,8", options="header"]
+.{namespace}::{data[name]}
+|===
+
+| Field | Description | Type | Size
+        """
+        t_field = """.2+^.^| `{field[name]}` | {field[description]} | `{field[type]}` | {field[size]}
+    3+| Default: {emit_default:if:`{field[default]}`} {emit_notes:if:+
+_{field[notes]}_}"""
+
+        t_end = """
+|===
+"""
+        s = SuperFormatter()
+
+        self.buffer.append(s.format(t_begin, namespace=self.namespace, data=self.data))
+
+        for field in self.data['fields']:
+            self.buffer.append(s.format(t_field, field=field, emit_notes=field['notes'] is not None,  emit_default=field['default'] is not None))
+
+        self.buffer.append(s.format(t_end, namespace=self.namespace, data=self.data, json=self.source))
+
+
+    def processDocumentation(self):
+        self.buffer = []
+        if self.valid:
+            self.__processDocumentationPreamble()
+            self.__processDocumentationFields()
+            self.__processDocumentationEnd()
+
     def getSummary(self, relpath=None):
         if self.valid:
             if relpath is not None:
@@ -383,20 +442,24 @@ class CoreConfiguration:
                 src = self.source
 
             if relpathDst is not None:
-                dst = os.path.relpath(self.destination, relpathDst)
+                hppDst = os.path.relpath(self.hppDestination, relpathDst)
+                cppDst = os.path.relpath(self.cppDestination, relpathDst)
+                docDst = os.path.relpath(self.docDestination, relpathDst)
             else:
-                dst = self.destination
+                hppDst = self.hppDestination
+                cppDst = self.cppDestination
+                docDst = self.docDestination
 
             if self.generated:
-                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, src, dst]
+                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, src, hppDst, cppDst, docDst]
             else:
-                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, src, CoreConsole.error(self.reason)]
+                return [CoreConsole.highlight(self.namespace), CoreConsole.highlight(self.name), self.description, src, CoreConsole.error(self.reason), "", ""]
         else:
-            return ["", "", CoreConsole.error(self.reason), "", ""]
+            return ["", "", CoreConsole.error(self.reason), "", "", "", ""]
 
     @staticmethod
     def getSummaryFieldsGenerate():
-        return ["NS", "Name", "Description", "Root", "Generate"]
+        return ["NS", "Name", "Description", "Root", "Generated hpp", "Generated cpp", "Generated doc"]
 
     def pack(self, fields, name=None):
         values = []
@@ -443,3 +506,45 @@ class CoreConfiguration:
         CoreConsole.info("CoreConfiguration::pack: '" + formatString + "' [size=" + str(s.size) + "] " + repr(values) + " -> " + repr(packed))
 
         return (packed, s.size)
+
+    def document(self):
+        pass
+
+    def generateDocumentation(self, path):
+        self.generated = False
+
+        try:
+            if self.valid:
+                if path == "":
+                    raise CoreError("'out' file is empty")
+                try:
+                    if self.package is not None:
+                        path = os.path.join(path, self.package.name, "doc", "params")
+                    else:
+                        raise CoreError("Implementation changed. 'self.package' MUST be defined")
+
+                    if not os.path.isdir(path):
+                        os.makedirs(path)
+
+                    self.docDestination = os.path.join(path, (self.name + ".adoc"))
+
+                    self.processDocumentation()
+
+                    sink = open(self.docDestination, 'w')
+                    sink.write("\n".join(self.buffer))
+
+                    CoreConsole.ok("CoreConfiguration::generateDocumentation " + CoreConsole.highlightFilename(self.docDestination))
+
+                    self.generated = True
+
+                except IOError as e:
+                    raise CoreError(str(e.strerror), e.filename)
+            else:
+                return False
+
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("CoreConfiguration::generateDocumentation: " + self.reason)
+            return False
+
+        return True

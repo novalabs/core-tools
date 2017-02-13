@@ -295,3 +295,125 @@ def getCoreTypeSize(t):
     }
 
     return sizes[t]
+
+## https://github.com/ebrehault/superformatter
+
+import string
+
+class SuperFormatter(string.Formatter):
+    """World's simplest Template engine."""
+
+    def get_value(self, key, args, kwargs):
+        if isinstance(key, int):
+            if not key in args:
+                return ''
+            return args[key]
+        else:
+            if not key in kwargs:
+                return ''
+            return kwargs[key]
+
+    def format_field(self, value, spec):
+        if spec.startswith('repeat'):
+            template = spec.partition(':')[-1]
+            if type(value) is dict:
+                value = value.items()
+            return ''.join([template.format(item=item) for item in value])
+        elif spec == 'call':
+            return value()
+        elif spec.startswith('if'):
+            return (value and spec.partition(':')[-1]) or ''
+        else:
+            return super(SuperFormatter, self).format_field(value, spec)
+
+
+import io
+
+
+class CoreReport:
+    enabled = True
+    debug = True
+    verbose = False
+
+    __buffer = None
+
+    FORE_HIGHLIGHT = Fore.YELLOW
+    FORE_RESET = Fore.RESET
+
+    def __init__(self):
+        self.__buffer = io.StringIO()
+
+    def __str__(self):
+        return self.__buffer.getvalue()
+
+    def out(self, message):
+        if (self.enabled):
+            print(message, file=self.__buffer)
+
+    def highlight(self, message):
+        return CoreReport.FORE_HIGHLIGHT + message + CoreReport.FORE_RESET
+
+    def highlightFilename(self, filename):
+        (p, f) = os.path.split(filename)
+        return p + "/" + self.highlight(f)
+
+    @staticmethod
+    def success(message):
+        return Style.RESET_ALL + Fore.GREEN + Style.BRIGHT + message + Style.RESET_ALL
+
+    @staticmethod
+    def fail(message):
+        return Style.RESET_ALL + Fore.RED + Style.BRIGHT + message + Style.RESET_ALL
+
+    @staticmethod
+    def error(message):
+        return Back.RED + Style.BRIGHT + message + Style.RESET_ALL
+
+    @staticmethod
+    def warning(message):
+        return Back.YELLOW + Style.BRIGHT + message + Style.RESET_ALL
+
+    @staticmethod
+    def tableX(data, headers=[], fmt="fancy_grid"):
+        return tabulate(data, headers=headers, tablefmt=fmt)
+
+    _invisible_codes = re.compile(r"\x1b\[\d*m|\x1b\[\d*\;\d*\;\d*m")  # Copied from tabulate
+
+    @staticmethod
+    def table(data, headers=[], fmt="fancy_grid"):
+        tmp = ""
+        if len(headers) > 0:
+            for x in data:
+                for i in range(0, len(x)):
+                    tmp += Fore.BLUE + headers[i] + Style.RESET_ALL + ": " + x[i]
+                    tmp += "\n"
+                tmp += "\n"
+        else:
+            for x in data:
+                for i in range(0, len(x)):
+                    tmp += x[i]
+                    tmp += "\n"
+                tmp += "\n"
+        return tmp
+
+    @staticmethod
+    def h1(message, w=80):
+        visible = re.sub(CoreReport._invisible_codes, "", message)
+
+        tmp = "= " + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL
+        tmp += "\n"
+
+        return tmp
+
+    @staticmethod
+    def h2(message, w=80):
+        tmp = '== ' + Style.BRIGHT + Fore.BLUE + message + Style.RESET_ALL
+        tmp += "\n"
+        return tmp
+
+    @staticmethod
+    def h3(message, w=80):
+        visible = re.sub(CoreReport._invisible_codes, "", message)
+
+        tmp = '------ ' + Fore.BLUE + message + Style.RESET_ALL + ' ' + ('-' * (w - 8 - len(visible)))
+        return tmp

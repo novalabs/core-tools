@@ -24,6 +24,7 @@ class CorePackage:
         self.provider = ""
 
         self.destination = None
+        self.docDestination = None
 
         self.buffer = []
 
@@ -102,6 +103,15 @@ class CorePackage:
         return self.root
 
     def generate(self, path, cmakePathPrefix=None, link=False):
+        if not self.generatePackage(path, cmakePathPrefix, link):
+            return False
+
+        if not self.generateDocumentation(path):
+            return False
+
+        return True
+
+    def generatePackage(self, path, cmakePathPrefix=None, link=False):
         self.cmakePathPrefix = cmakePathPrefix
         self.generated = False
         self.link = link
@@ -135,6 +145,43 @@ class CorePackage:
             return False
 
         return True
+
+    def generateDocumentation(self, path):
+        self.generated = False
+
+        try:
+            if self.valid:
+                if path == "":
+                    raise CoreError("'out' file is empty")
+                try:
+                    path = os.path.join(path, self.name, "doc")
+
+                    if not os.path.isdir(path):
+                        os.makedirs(path)
+
+                    self.docDestination = os.path.join(path, (self.name + ".adoc"))
+
+                    self.processDocumentation()
+
+                    sink = open(self.docDestination, 'w')
+                    sink.write("\n".join(self.buffer))
+
+                    CoreConsole.ok("CorePackage::generateDocumentation " + CoreConsole.highlightFilename(self.docDestination))
+
+                    self.generated = True
+
+                except IOError as e:
+                    raise CoreError(str(e.strerror), e.filename)
+            else:
+                return False
+
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("CorePackage::generateDocumentation: " + self.reason)
+            return False
+
+        return True
+
 
     def process(self):
         srcIncludes = os.path.join(self.packageRoot, "include")
@@ -196,6 +243,31 @@ class CorePackage:
             self.buffer.append('  ' + self.cmakePathPrefix + '/' + self.name + "/include")
             self.buffer.append(')')
             self.buffer.append('')
+
+    def __processDocumentationPreamble(self):
+        t = """
+[[anchor_pack-{provider}::{package}]]
+== {provider}::{package}
+_{description}_
+"""
+        s = SuperFormatter()
+        self.buffer.append(s.format(t, package=self.name, provider=self.provider, description=self.description))
+
+    def __processDocumentationEnd(self):
+        tmp, dummy = os.path.splitext(self.source)
+        addDocFile = os.path.join(self.packageRoot, self.name + ".adoc")
+
+        if os.path.exists(addDocFile):
+            with open(addDocFile, "r") as f:
+                t = f.read()
+                s = SuperFormatter()
+                self.buffer.append(s.format(t, name=self.name, provider=self.provider, package=self.name, fqn=self.provider + "::" + self.name))
+
+    def processDocumentation(self):
+        self.buffer = []
+        if self.valid:
+            self.__processDocumentationPreamble()
+            self.__processDocumentationEnd()
 
     def getSummary(self, relpath=None):
         if self.valid:
