@@ -9,7 +9,24 @@ from .CoreBootstrap import fetch as UpdateCore
 
 
 class Core(CoreContainer):
-    schema = '{ "type":"record","name":"Core","fields":[{"name":"name","type":"string"},{ "name":"description","type":"string"}]}'
+    schema = {
+      "definitions" : {
+        "record:Core" : {
+          "type" : "object",
+          "required" : [ "name", "description" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "$ref" : "#/definitions/record:Core"
+    }
 
     def __init__(self):
         CoreContainer.__init__(self)

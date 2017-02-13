@@ -10,7 +10,58 @@ from .CoreUtils import *
 
 
 class CoreConfiguration:
-    schema = '{ "type": "record", "name": "CoreConfiguration", "namespace" : "", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "namespace", "type": "string" }, { "name": "fields", "type": { "type": "array", "items": { "type": "record", "name": "CoreConfigurationParameter", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "type", "type": { "type": "enum", "name": "CoreConfigurationParameterDataType", "symbols": [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64" ] } }, { "name": "size", "type": "int", "default": 1 } ] } } } ] }'
+    schema = {
+      "definitions" : {
+        "record:CoreConfiguration" : {
+          "type" : "object",
+          "required" : [ "name", "description", "namespace", "fields" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "namespace" : {
+              "type" : "string"
+            },
+            "fields" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/definitions/record:CoreConfigurationParameter"
+              }
+            }
+          }
+        },
+        "record:CoreConfigurationParameter" : {
+          "type" : "object",
+          "required" : [ "name", "description", "type", "size" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "type" : {
+              "$ref" : "#/definitions/enum:CoreConfigurationParameterDataType"
+            },
+            "size" : {
+              "default" : 1,
+              "type" : "integer",
+              "minimum" : -2147483648,
+              "maximum" : 2147483647
+            }
+          }
+        },
+        "enum:CoreConfigurationParameterDataType" : {
+          "enum" : [ "CHAR", "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "INT64", "UINT64", "FLOAT32", "FLOAT64" ]
+        }
+      },
+      "$ref" : "#/definitions/record:CoreConfiguration"
+    }
 
     FieldtypeOrder = ["TIMESTAMP", "INT64", "UINT64", "FLOAT64", "INT32", "UINT32", "FLOAT32", "INT16", "UINT16", "CHAR", "INT8", "UINT8"]
 

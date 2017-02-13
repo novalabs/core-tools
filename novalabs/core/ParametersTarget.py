@@ -9,7 +9,46 @@ from intelhex import IntelHex
 import struct
 
 class Parameters:
-    schema = '{"type":"record","name":"Parameters","fields":[{"name":"name","type":"string"},{"name":"description","type": "string"},{"name":"objects","type":{"type":"array","items":{"type":"record","name":"ObjectParameters","fields":[{"name":"object","type":"string"},{"name":"package","type":"string"},{"name":"parameters","type":"string"}]}}}]}'
+    schema = {
+      "definitions" : {
+        "record:Parameters" : {
+          "type" : "object",
+          "required" : [ "name", "description", "objects" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "objects" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/definitions/record:ObjectParameters"
+              }
+            }
+          }
+        },
+        "record:ObjectParameters" : {
+          "type" : "object",
+          "required" : [ "object", "package", "parameters" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "object" : {
+              "type" : "string"
+            },
+            "package" : {
+              "type" : "string"
+            },
+            "parameters" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "$ref" : "#/definitions/record:Parameters"
+    }
 
     def __init__(self):
         self.parametersRoot = ""
@@ -165,7 +204,27 @@ class Parameters:
         return ["Name", "Description", "Root"]
 
 class ParametersTarget:
-    schema = '{"type":"record","name":"ParametersTarget","fields":[{"name":"name","type":"string"},{"name":"description","type":"string"},{"name":"target","type":"string"}]}'
+    schema = {
+      "definitions" : {
+        "record:ParametersTarget" : {
+          "type" : "object",
+          "required" : [ "name", "description", "target" ],
+          "additionalProperties" : True,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "target" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "$ref" : "#/definitions/record:ParametersTarget"
+    }
 
     def __init__(self):
         try:

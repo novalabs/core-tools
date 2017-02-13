@@ -9,7 +9,27 @@ from .CoreMessage import *
 
 
 class CorePackage:
-    schema = '{ "type": "record", "name": "CorePackage", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "provider", "type": "string" } ] }'
+    schema = {
+      "definitions" : {
+        "record:CorePackage" : {
+          "type" : "object",
+          "required" : [ "name", "description", "provider" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "provider" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "$ref" : "#/definitions/record:CorePackage"
+    }
 
     def __init__(self):
         self.filename = ""

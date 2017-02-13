@@ -9,6 +9,8 @@ import os
 import numbers
 import ctypes
 from json import loads
+import jsonschema
+from jsonschema import validate
 
 from .CoreConsole import *
 
@@ -119,14 +121,6 @@ def formatValuesAsC(type, size, value):
 
     return buffer
 
-if sys.version_info[0] >= 3:
-    from avro.io import Validate as validate
-    from avro.schema import Parse as parse
-else:
-    from avro.io import validate
-    from avro.schema import parse
-
-
 class Error(Exception):
     """Base class for exceptions in this module."""
     pass
@@ -218,14 +212,13 @@ def loadJson(filename):
     except IOError as e:
         raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
 
-def loadAndValidateJson(filename, schemaJSON):
-    schema = parse(schemaJSON)
+def loadAndValidateJson(filename, schema):
     try:
         data = loads(open(filename, 'r').read())
-        if validate(schema, data):
-            return data
-        else:
-            raise CoreError("File invalid according to schema", filename)
+        validate(data, schema)
+        return data
+    except jsonschema.exceptions.ValidationError as e:
+        raise CoreError("File invalid according to schema [%s]" % e.message, filename)
     except ValueError:
         raise CoreError("Broken JSON file", filename)
     except IOError as e:

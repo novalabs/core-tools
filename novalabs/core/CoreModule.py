@@ -7,7 +7,39 @@ from .CoreUtils import *
 
 
 class CoreModule:
-    schema = '{ "type": "record", "name": "CoreModule", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "chip", "type": "string" }, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "chibios_components", "type": { "type": "array", "items": "string" } } ] }'
+    schema = {
+      "definitions" : {
+        "record:CoreModule" : {
+          "type" : "object",
+          "required" : [ "name", "description", "chip", "required_packages", "chibios_components" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "chip" : {
+              "type" : "string"
+            },
+            "required_packages" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "chibios_components" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          }
+        }
+      },
+      "$ref" : "#/definitions/record:CoreModule"
+    }
 
     def __init__(self):
         self.filename = ""

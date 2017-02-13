@@ -6,7 +6,56 @@
 from .CoreUtils import *
 
 class ModuleTarget:
-    schema = '{ "type": "record", "name": "ModuleTarget", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "module", "type": "string" },  {"name": "os_version", "type": ["null", { "type": "enum", "name": "OSVersion", "symbols" : ["CHIBIOS_3", "CHIBIOS_16"]}]}, { "name": "required_packages", "type": { "type": "array", "items": "string" } }, { "name": "sources", "type": { "type": "array", "items": "string" } }, { "name": "includes", "type": { "type": "array", "items": "string" } } ] }'
+    schema = {
+      "definitions" : {
+        "record:ModuleTarget" : {
+          "type" : "object",
+          "required" : [ "name", "description", "module", "required_packages", "sources", "includes" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "module" : {
+              "type" : "string"
+            },
+            "os_version" : {
+              "oneOf" : [ {
+                "type" : "null"
+              }, {
+                "$ref" : "#/definitions/enum:OSVersion"
+              } ]
+            },
+            "required_packages" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "sources" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "includes" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "enum:OSVersion" : {
+          "enum" : [ "CHIBIOS_3", "CHIBIOS_16" ]
+        }
+      },
+      "$ref" : "#/definitions/record:ModuleTarget"
+    }
+
     DEFAULT_OS_VERSION = "CHIBIOS_3"
 
     def __init__(self):
