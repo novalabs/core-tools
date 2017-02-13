@@ -10,7 +10,100 @@ from .CoreUtils import *
 
 
 class CoreBootstrap:
-    schema = '{ "name": "CoreRepos", "type": "record", "fields": [ { "name": "name", "type": "string" }, { "name": "description", "type": "string" }, { "name": "core", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "packages", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposPackageP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } }, { "name": "modules", "type": { "type": "array", "items": { "type": "record", "name": "CoreReposModuleP", "fields": [ { "name": "name", "type": "string" }, { "name": "url", "type": "string" }, { "name": "branch", "type": "string" }, { "name": "description", "type": "string" } ] } } } ] }'
+    schema = {
+      "definitions" : {
+        "record:CoreRepos" : {
+          "type" : "object",
+          "required" : [ "name", "description", "core", "packages", "modules" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            },
+            "core" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/definitions/record:CoreReposP"
+              }
+            },
+            "packages" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/definitions/record:CoreReposPackageP"
+              }
+            },
+            "modules" : {
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/definitions/record:CoreReposModuleP"
+              }
+            }
+          }
+        },
+        "record:CoreReposP" : {
+          "type" : "object",
+          "required" : [ "name", "url", "branch", "description" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "url" : {
+              "type" : "string"
+            },
+            "branch" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            }
+          }
+        },
+        "record:CoreReposPackageP" : {
+          "type" : "object",
+          "required" : [ "name", "url", "branch", "description" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "url" : {
+              "type" : "string"
+            },
+            "branch" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            }
+          }
+        },
+        "record:CoreReposModuleP" : {
+          "type" : "object",
+          "required" : [ "name", "url", "branch", "description" ],
+          "additionalProperties" : False,
+          "properties" : {
+            "name" : {
+              "type" : "string"
+            },
+            "url" : {
+              "type" : "string"
+            },
+            "branch" : {
+              "type" : "string"
+            },
+            "description" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "$ref" : "#/definitions/record:CoreRepos"
+    }
+
     REMOTE_URL = "https://github.com/novalabs/core-repos.git"
 
     def __init__(self, corePath):
@@ -248,20 +341,3 @@ def fetch(corePath):
     except CoreError as e:
         CoreConsole.out(CoreConsole.error(e.value))
         return False
-
-
-if '__main__' == __name__:
-    CoreConsole.debug = False
-    CoreConsole.verbose = False
-
-    CoreConsole.out(Fore.MAGENTA + "Bootstrapping Core Distribution" + Fore.RESET)
-    CoreConsole.out("")
-
-    isOk = fetch(os.path.join(os.getcwd(), "core"))
-    printSuccessOrFailure(isOk)
-
-    if not isOk:
-        sys.exit(-1)
-
-    sys.exit(0)
-
