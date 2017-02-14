@@ -15,7 +15,7 @@ class CoreConfiguration:
         "record:CoreConfiguration" : {
           "type" : "object",
           "required" : [ "name", "description", "namespace", "fields" ],
-          "additionalProperties" : False,
+          "additionalProperties" : True,
           "properties" : {
             "name" : {
               "type" : "string"
@@ -37,7 +37,7 @@ class CoreConfiguration:
         "record:CoreConfigurationParameter" : {
           "type" : "object",
           "required" : [ "name", "description", "type", "size" ],
-          "additionalProperties" : False,
+          "additionalProperties" : True,
           "properties" : {
             "name" : {
               "type" : "string"
