@@ -3,6 +3,8 @@
 # All rights reserved. All use of this software and documentation is
 # subject to the License Agreement located in the file LICENSE.
 
+import zlib
+
 from .CoreUtils import *
 
 
@@ -78,6 +80,9 @@ class CoreMessage:
 
         self.orderedFields = []
         self.buffer = []
+
+        self.signature = 0xffffffff
+        self.signatureBuffer = []
 
         self.valid = False
         self.generated = False
@@ -223,6 +228,7 @@ class CoreMessage:
     def preProcess(self):
         try:
             if self.valid:
+                self.signatureBuffer = []
                 self.orderedFields = []
 
                 fields = self.data['fields']
@@ -230,9 +236,14 @@ class CoreMessage:
                     for field in fields:
                         if fieldType == field['type']:
                             self.orderedFields.append(field)
+                            self.signatureBuffer.append(field['name'])
+                            self.signatureBuffer.append(field['type'])
+                            self.signatureBuffer.append(str(field['size']))
 
                             if not 'notes' in field:
                                 field['notes'] = None
+
+                self.__updateSignature()
                 return True
             else:
                 return False
@@ -242,6 +253,9 @@ class CoreMessage:
             CoreConsole.fail("CoreMessage::preProcess: " + self.reason)
             return False
 
+    def __updateSignature(self):
+        self.signature = (zlib.crc32(bytearray(':'.join(self.signatureBuffer), 'ascii')) & 0xffffffff)
+
     def process(self):
         self.buffer = []
         if self.valid:
@@ -249,6 +263,7 @@ class CoreMessage:
             self.__processNamsepaceBegin()
             self.__processMessageBegin()
             self.__processFields()
+            self.__processMessageSignature()
             self.__processMessageEnd()
             self.__processNamsepaceEnd()
 
@@ -271,6 +286,9 @@ class CoreMessage:
         fields = self.orderedFields
         for field in fields:
             self.buffer.append('	CORE_MESSAGE_FIELD(' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ') // ' + field['description'])
+
+    def __processMessageSignature(self):
+        self.buffer.append('CORE_MESSAGE_SIGNATURE(' + hex(self.signature) + ')')
 
     def __processMessageEnd(self):
         self.buffer.append('CORE_MESSAGE_END')
