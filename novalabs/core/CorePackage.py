@@ -274,7 +274,6 @@ _{description}_
         s = SuperFormatter()
         self.buffer.append(s.format(t, package=self.name, provider=self.provider, description=self.description))
 
-    def __processDocumentationEnd(self):
         tmp, dummy = os.path.splitext(self.source)
         addDocFile = os.path.join(self.packageRoot, self.name + ".adoc")
 
@@ -283,6 +282,9 @@ _{description}_
                 t = f.read()
                 s = SuperFormatter()
                 self.buffer.append(s.format(t, name=self.name, provider=self.provider, package=self.name, fqn=self.provider + "::" + self.name))
+
+    def __processDocumentationEnd(self):
+        pass
 
     def processDocumentation(self):
         self.buffer = []
