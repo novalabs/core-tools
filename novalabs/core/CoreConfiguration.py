@@ -447,7 +447,7 @@ _{data[description]}_
 | Field | Description | Type | Size
         """
         t_field = """.2+^.^| `{field[name]}` | {field[description]} | `{field[type]}` | {field[size]}
-    3+| Default: {emit_default:if:`{field[default]}`} {emit_notes:if:+
+    3+| {emit_default:if:Default: `{field[default]}`} {emit_notes:if:+
 _{field[notes]}_}"""
 
         t_end = """
