@@ -255,7 +255,7 @@ Configuration: <<anchor_params-{data[configuration]}>>
 | Topic | Description | Type
         """
         t_field = """.2+^.^| `{field[name]}` | {field[description]} |<<{refdoc}#anchor-msg-{field[type]},`{field[type]}`>>
-    2+| {emit_notes:if:+
+    2+| {emit_notes:if:
 _{field[notes]}_}"""
 
         t_end = """
@@ -267,7 +267,7 @@ _{field[notes]}_}"""
 
         for field in data:
             tmp = splitFQN(field['type'])
-            refdoc = "../../" + ("/".join(tmp[:-1])) + "/index.adoc"
+            refdoc = "../" + ("/".join(tmp[1:-1])) + "/index.adoc"
 
             self.buffer.append(s.format(t_field, refdoc=refdoc, field=field, emit_notes=field['notes'] is not None))
 
