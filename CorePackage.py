@@ -101,6 +101,43 @@ def ls(srcPath, verbose):
     else:
         return -1
 
+def generateDocumentation(name, docs,nodes,params,msgs):
+    buffer = list()
+
+    buffer.append(":icons: font")
+    buffer.append("= [Package] " + name)
+    buffer.append("")
+    for doc in docs:
+        if doc != "index.adoc":
+            buffer.append("include::doc/" + doc + "[tabsize=2]")
+    buffer.append("")
+
+    if nodes:
+        buffer.append("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+        buffer.append("")
+        buffer.append("== Nodes")
+        for node in nodes:
+            buffer.append("include::doc/nodes/" + node + "[tabsize=2]")
+
+    if params:
+        buffer.append("")
+        buffer.append("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+        buffer.append("")
+        buffer.append("== Parameters")
+        for param in params:
+            buffer.append("include::doc/params/" + param + "[tabsize=2]")
+
+    if msgs:
+        buffer.append("")
+        buffer.append("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+        buffer.append("")
+        buffer.append("== Messages")
+        buffer.append("")
+        for msg in msgs:
+            buffer.append("include::doc/msgs/" + msg + "[tabsize=2]")
+
+    return "\n".join(buffer)
+
 
 def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=None, relPathDst=None):
     if not verbose:
@@ -185,17 +222,27 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     # -----------------------------------------------------------------------------
 
     # --- Generate documentation --------------------------------------------------
+    #TODO: This is just a proof of concept - I must rewrite it as it should be written
+
     docs = listFilesByExtension(os.path.join(targetPath, package.name, "doc"), "adoc")
-    nodesDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "nodes"), "adoc")
     paramsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "params"), "adoc")
     msgsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "msgs"), "adoc")
     nodesDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "nodes"), "adoc")
 
-    print(docs)
-    print(nodesDocs)
-    print(paramsDocs)
-    print(msgsDocs)
-    print(nodesDocs)
+    index = generateDocumentation(package.name, docs, nodesDocs, paramsDocs, msgsDocs)
+
+    docDestination = os.path.join(targetPath, package.name, "index.adoc")
+    print(docDestination)
+    try:
+        try:
+            sink = open(docDestination, 'w')
+            sink.write(index)
+        except IOError as e:
+            raise CoreError(str(e.strerror), e.filename)
+    except CoreError as e:
+        isOk = False
+        CoreConsole.fail("Cannot generate documentation: " + str(e))
+        CoreConsole.out(CoreConsole.error("Cannot generate documentation: " + str(e)))
     # -----------------------------------------------------------------------------
 
     printSuccessOrFailure(isOk)
