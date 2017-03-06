@@ -8,6 +8,7 @@ from .CoreConfiguration import *
 from .CoreMessage import *
 from .CoreNode import *
 
+import git
 
 class CorePackage:
     schema = {
@@ -61,6 +62,8 @@ class CorePackage:
         self.generated = False
         self.reason = ""
 
+        self.git_rev = None
+
     def openJSON(self, jsonFile):
         CoreConsole.info("CORE_PACKAGE: " + CoreConsole.highlightFilename(jsonFile))
 
@@ -106,6 +109,12 @@ class CorePackage:
         jsonFile = os.path.join(self.packageRoot, "CORE_PACKAGE.json")
 
         try:
+            try:
+                r = git.repo.Repo(self.packageRoot)
+                self.git_rev = r.git.describe(all=True, long=True, dirty=True)
+            except Exception as e:
+                pass
+
             return self.openJSON(jsonFile)
         except CoreError as e:
             self.reason = str(e)
