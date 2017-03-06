@@ -101,7 +101,9 @@ def ls(srcPath, verbose):
     else:
         return -1
 
-def generateDocumentation(name, docs,nodes,params,msgs):
+
+def generateDocumentation(name, git_rev, docs,nodes,params,msgs):
+    print(git_rev)
     buffer = list()
 
     buffer.append(":icons: font")
@@ -135,6 +137,18 @@ def generateDocumentation(name, docs,nodes,params,msgs):
         buffer.append("")
         for msg in msgs:
             buffer.append("include::doc/msgs/" + msg + "[tabsize=2]")
+
+    if git_rev is not None:
+        buffer.append("")
+        buffer.append("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+        buffer.append("[appendix]")
+        buffer.append("== Source code")
+        buffer.append("")
+        buffer.append("[NOTE]")
+        buffer.append("===============================")
+        buffer.append("GIT Description of source code +")
+        buffer.append("`" + git_rev + "`")
+        buffer.append("===============================")
 
     return "\n".join(buffer)
 
@@ -229,10 +243,10 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     msgsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "msgs"), "adoc")
     nodesDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "nodes"), "adoc")
 
-    index = generateDocumentation(package.name, docs, nodesDocs, paramsDocs, msgsDocs)
+    index = generateDocumentation(package.name, package.git_rev, docs, nodesDocs, paramsDocs, msgsDocs)
 
     docDestination = os.path.join(targetPath, package.name, "index.adoc")
-    print(docDestination)
+
     try:
         try:
             sink = open(docDestination, 'w')
