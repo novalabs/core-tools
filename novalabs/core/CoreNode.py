@@ -228,6 +228,8 @@ class CoreNode:
 [[anchor_node-{namespace}::{data[name]}]]
 === {namespace}::{data[name]}
 _{data[description]}_
+
+Configuration: <<anchor_params-{data[configuration]}>>
 """
         s = SuperFormatter()
         self.buffer.append(s.format(t, namespace=self.namespace, data=self.data))
@@ -250,9 +252,9 @@ _{data[description]}_
 .{namespace}::{data[name]} {title}
 |===
 
-| Field | Description | Type
+| Topic | Description | Type
         """
-        t_field = """.2+^.^| `{field[name]}` | {field[description]} | `{field[type]}`
+        t_field = """.2+^.^| `{field[name]}` | {field[description]} |<<{refdoc}#anchor-msg-{field[type]},`{field[type]}`>>
     2+| {emit_notes:if:+
 _{field[notes]}_}"""
 
@@ -264,7 +266,10 @@ _{field[notes]}_}"""
         self.buffer.append(s.format(t_begin, title=title,  namespace=self.namespace, data=self.data))
 
         for field in data:
-            self.buffer.append(s.format(t_field, field=field, emit_notes=field['notes'] is not None))
+            tmp = splitFQN(field['type'])
+            refdoc = "../../" + ("/".join(tmp[:-1])) + "/index.adoc"
+
+            self.buffer.append(s.format(t_field, refdoc=refdoc, field=field, emit_notes=field['notes'] is not None))
 
         self.buffer.append(s.format(t_end, namespace=self.namespace, data=data, json=self.source))
 
