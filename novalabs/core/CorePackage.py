@@ -6,6 +6,7 @@
 from .CoreConsole import *
 from .CoreConfiguration import *
 from .CoreMessage import *
+from .CoreNode import *
 
 
 class CorePackage:

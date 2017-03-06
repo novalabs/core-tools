@@ -77,6 +77,23 @@ def ls(srcPath, verbose):
         CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFields()))
     # -----------------------------------------------------------------------------
 
+    # --- List nodes --------------------------------------------------------------
+    table = []
+    tmp = package.listNodeFiles()
+    for x in tmp:
+        node = CoreNode()
+        node.open(x, package)
+
+        table.append(node.getSummary(package.packageRoot))
+
+        if not node.valid:
+            isOk = False
+    if len(tmp) > 0:
+        CoreConsole.out("")
+        CoreConsole.out(CoreConsole.h2("NODES"))
+        CoreConsole.out(CoreConsole.table(table, CoreNode.getSummaryFields()))
+    # -----------------------------------------------------------------------------
+
     printSuccessOrFailure(isOk)
 
     if isOk:
@@ -149,13 +166,36 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
         CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
-    # --- Generate documentatio ---------------------------------------------------
+    # --- Generate nodes ----------------------------------------------------------
+    table = []
+    tmp = package.listNodeFiles()
+    for x in tmp:
+        node = CoreNode()
+        if node.open(x, package):
+            node.generate(targetPath)
+
+        table.append(node.getSummaryGenerate(package.packageRoot, package.destination))
+
+        if not node.generated:
+            isOk = False
+    if len(tmp) > 0:
+        CoreConsole.out("")
+        CoreConsole.out(CoreConsole.h2("MESSAGES"))
+        CoreConsole.out(CoreConsole.table(table, CoreNode.getSummaryFieldsGenerate()))
+    # -----------------------------------------------------------------------------
+
+    # --- Generate documentation --------------------------------------------------
     docs = listFilesByExtension(os.path.join(targetPath, package.name, "doc"), "adoc")
     nodesDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "nodes"), "adoc")
     paramsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "params"), "adoc")
     msgsDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "msgs"), "adoc")
+    nodesDocs = listFilesByExtension(os.path.join(targetPath, package.name, "doc", "nodes"), "adoc")
 
     print(docs)
+    print(nodesDocs)
+    print(paramsDocs)
+    print(msgsDocs)
+    print(nodesDocs)
     # -----------------------------------------------------------------------------
 
     printSuccessOrFailure(isOk)

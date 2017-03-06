@@ -294,8 +294,6 @@ class CoreConfiguration:
             CoreConsole.fail("CoreConfiguration::preProcess: " + self.reason)
             return False
 
-        return True
-
     def processHeader(self):
         self.buffer = []
         if self.valid:
