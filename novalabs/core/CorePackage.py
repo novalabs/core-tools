@@ -16,7 +16,7 @@ class CorePackage:
         "record:CorePackage" : {
           "type" : "object",
           "required" : [ "name", "description", "provider" ],
-          "additionalProperties" : False,
+          "additionalProperties" : True,
           "properties" : {
             "name" : {
               "type" : "string"
