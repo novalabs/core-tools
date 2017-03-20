@@ -290,7 +290,7 @@ def load(mw, transport, args):
         data = f.read().splitlines()
 
     type = MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
-    if not bl.ihex(type, ""):
+    if not bl.ihex_write(type, ""):
         print("Cannot write IHEX data")
         return 1
 
@@ -303,12 +303,12 @@ def load(mw, transport, args):
 
         print(line)
 
-        if not bl.ihex(type, line):
+        if not bl.ihex_write(type, line):
             print("Cannot write IHEX data")
             return 1
 
     type = MW.BootMsg.IHEX.IHexTypeEnum.END
-    if not bl.ihex(type, ""):
+    if not bl.ihex_write(type, ""):
         print("Cannot write IHEX data")
         return 1
 
