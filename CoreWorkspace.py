@@ -138,42 +138,20 @@ def ls(srcPath, verbose):
         printSuccessOrFailure(False)
         return -1
 
+    # MODULES
     table = []
-    for m in workspace.validModuleTargets():
+    for m in workspace.coreWorkspace.validModules:
         table.append(m.getSummary(workspace.getRoot()))
 
-    for m in workspace.invalidModuleTargets():
+    for m in workspace.coreWorkspace.invalidModules:
         table.append(m.getSummary(workspace.getRoot()))
         isOk = False
 
     if len(table) > 0:
-        CoreConsole.out(CoreConsole.h2("MODULE TARGETS"))
-        CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
+        CoreConsole.out(CoreConsole.h2("MODULES"))
+        CoreConsole.out(CoreConsole.table(table, CoreModule.getSummaryFields()))
 
-    table = []
-    for m in workspace.validParameterTargets():
-        table.append(m.getSummary(workspace.getRoot()))
-
-    for m in workspace.invalidParameterTargets():
-        table.append(m.getSummary(workspace.getRoot()))
-        isOk = False
-
-    if len(table) > 0:
-        CoreConsole.out(CoreConsole.h2("PARAMETER TARGETS"))
-        CoreConsole.out(CoreConsole.table(table, ParametersTarget.getSummaryFields()))
-
-    table = []
-    for m in workspace.validParameters():
-        table.append(m.getSummary(workspace.getRoot()))
-
-    for m in workspace.invalidParameters():
-        table.append(m.getSummary(workspace.getRoot()))
-        isOk = False
-
-    if len(table) > 0:
-        CoreConsole.out(CoreConsole.h2("PARAMETERS"))
-        CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
-
+    # PACKAGES
     table = []
     for p in workspace.coreWorkspace.validPackages:
         table.append(p.getSummary(workspace.getRoot()))
@@ -187,12 +165,27 @@ def ls(srcPath, verbose):
         CoreConsole.out(CoreConsole.h2("PACKAGES"))
         CoreConsole.out(CoreConsole.table(table, CorePackage.getSummaryFields()))
 
+    # PARAMETERS
+    table = []
+    for m in workspace.validParameters():
+        table.append(m.getSummary(workspace.getRoot()))
+
+    for m in workspace.invalidParameters():
+        table.append(m.getSummary(workspace.getRoot()))
+        isOk = False
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h2("PARAMETERS"))
+        CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
+
+    # PACKAGE DEPENDENCIES
     table = workspace.getPackagesDependenciesSummary()
     if len(table) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("PACKAGE DEPENDENCIES"))
         CoreConsole.out(CoreConsole.table(table, Workspace.getPackagesDependenciesSummaryFields()))
 
+    # MODULE DEPENDENCIES
     table = workspace.getModulesDependenciesSummary()
     if len(table) > 0:
         CoreConsole.out("")
@@ -208,6 +201,32 @@ def ls(srcPath, verbose):
         CoreConsole.out(CoreConsole.error("There are unmet Module dependencies: " + ", ".join(workspace.modulesNoneDependencies)))
         CoreConsole.out("")
         isOk = False
+
+    # MODULE TARGETS
+    table = []
+    for m in workspace.validModuleTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+
+    for m in workspace.invalidModuleTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+        isOk = False
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h2("MODULE TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, ModuleTarget.getSummaryFields()))
+
+    # PARAMETER TARGETS
+    table = []
+    for m in workspace.validParameterTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+
+    for m in workspace.invalidParameterTargets():
+        table.append(m.getSummary(workspace.getRoot()))
+        isOk = False
+
+    if len(table) > 0:
+        CoreConsole.out(CoreConsole.h2("PARAMETER TARGETS"))
+        CoreConsole.out(CoreConsole.table(table, ParametersTarget.getSummaryFields()))
 
     printSuccessOrFailure(isOk)
 
