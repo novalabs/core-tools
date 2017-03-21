@@ -7,53 +7,74 @@ from .CoreUtils import *
 
 class ModuleTarget:
     schema = {
-      "definitions" : {
-        "record:ModuleTarget" : {
-          "type" : "object",
-          "required" : [ "name", "description", "module", "required_packages", "sources", "includes" ],
-          "additionalProperties" : False,
-          "properties" : {
-            "name" : {
-              "type" : "string"
+      "definitions": {
+        "record:ModuleTarget": {
+          "type": "object",
+          "required": [
+            "name",
+            "description",
+            "module",
+            "required_packages",
+            "sources",
+            "includes"
+          ],
+          "additionalProperties": False,
+          "properties": {
+            "name": {
+              "type": "string"
             },
-            "description" : {
-              "type" : "string"
+            "description": {
+              "type": "string"
             },
-            "module" : {
-              "type" : "string"
+            "module": {
+              "type": "string"
             },
-            "os_version" : {
-              "oneOf" : [ {
-                "type" : "null"
-              }, {
-                "$ref" : "#/definitions/enum:OSVersion"
-              } ]
+            "os_version": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/enum:OSVersion"
+                }
+              ]
             },
-            "required_packages" : {
-              "type" : "array",
-              "items" : {
-                "type" : "string"
+            "required_packages": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
             },
-            "sources" : {
-              "type" : "array",
-              "items" : {
-                "type" : "string"
+            "sources": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
             },
-            "includes" : {
-              "type" : "array",
-              "items" : {
-                "type" : "string"
+            "includes": {
+              "type": "array",
+              "items": {
+                "type": "string"
               }
+            },
+            "bootloader_size": {
+              "default": 0,
+              "type": "integer"
+            },
+            "configuration_size": {
+              "default": 0,
+              "type": "integer"
             }
           }
         },
-        "enum:OSVersion" : {
-          "enum" : [ "CHIBIOS_3", "CHIBIOS_16" ]
+        "enum:OSVersion": {
+          "enum": [
+            "CHIBIOS_3",
+            "CHIBIOS_16"
+          ]
         }
       },
-      "$ref" : "#/definitions/record:ModuleTarget"
+      "$ref": "#/definitions/record:ModuleTarget"
     }
 
     DEFAULT_OS_VERSION = "CHIBIOS_3"
@@ -73,6 +94,9 @@ class ModuleTarget:
         self.description = ""
         self.module = ""
         self.os_version = ""
+
+        self.bootloader_size = 0
+        self.configuration_size = 0
 
         self.destination = ""
 
@@ -116,6 +140,15 @@ class ModuleTarget:
                 for x in self.data["required_packages"]:
                     self.requiredPackages.append(x)
 
+                if "bootloader_size" in self.data:
+                    self.bootloader_size = self.data["bootloader_size"]
+                else:
+                    self.bootloader_size = 0
+
+                if "configuration_size" in self.data:
+                    self.configuration_size = self.data["configuration_size"]
+                else:
+                    self.configuration_size = 0
                 CoreConsole.ok("ModuleTarget:: valid")
 
                 self.valid = True
@@ -206,6 +239,7 @@ class ModuleTarget:
         self.buffer = []
         if self.valid:
             self.__processPreamble()
+            self.__processBootloaderAndConfiguration()
             self.__processIncludes()
             self.__processSources()
             self.__processCoreTarget()
@@ -216,11 +250,17 @@ class ModuleTarget:
         self.buffer.append('## TARGET MODULE ' + self.module)
         self.buffer.append('')
         self.buffer.append('PROJECT( ' + self.name + ' )')
-        self.buffer.append('CMAKE_MINIMUM_REQUIRED(VERSION 2.8)')
+        self.buffer.append('CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )')
         self.buffer.append('')
         self.buffer.append('FIND_PACKAGE( CORE_BUILD CONFIG REQUIRED )')
         self.buffer.append('')
         self.buffer.append('INCLUDE ( CoreTarget NO_POLICY_SCOPE )')
+        self.buffer.append('')
+
+    def __processBootloaderAndConfiguration(self):
+        self.buffer.append('SET( BOOTLOADER_SIZE ' + str(self.bootloader_size) + ' )')
+        self.buffer.append('SET( CONFIGURATION_SIZE ' + str(self.configuration_size) + ' )')
+        self.buffer.append('')
 
     def __processIncludes(self):
         self.buffer.append('SET( PROJECT_INCLUDE_DIRECTORIES')
