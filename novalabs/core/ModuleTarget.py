@@ -45,6 +45,12 @@ class ModuleTarget:
                 "type": "string"
               }
             },
+            "required_os_components": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "sources": {
               "type": "array",
               "items": {
@@ -108,7 +114,8 @@ class ModuleTarget:
 
         self.sources = None
         self.includes = None
-        self.requiredPackages = ""
+        self.requiredPackages = []
+        self.requiredOSComponents = []
 
         self.coreModule = None
 
@@ -139,6 +146,11 @@ class ModuleTarget:
                 self.requiredPackages = []
                 for x in self.data["required_packages"]:
                     self.requiredPackages.append(x)
+
+                if "required_os_components" in self.data:
+                    self.requiredOSComponents = []
+                    for x in self.data["required_os_components"]:
+                        self.requiredOSComponents.append(x)
 
                 if "bootloader_size" in self.data:
                     self.bootloader_size = self.data["bootloader_size"]
@@ -284,6 +296,10 @@ class ModuleTarget:
         if len(self.requiredPackages) > 0:
             self.buffer.append('  PACKAGES')
             for x in self.requiredPackages:
+                self.buffer.append('    ' + x)
+        if len(self.requiredOSComponents) > 0:
+            self.buffer.append('  OS_COMPONENTS')
+            for x in self.requiredOSComponents:
                 self.buffer.append('    ' + x)
         self.buffer.append(')')
         self.buffer.append('')
