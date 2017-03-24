@@ -11,97 +11,148 @@ from .CoreUtils import *
 
 class CoreBootstrap:
     schema = {
-      "definitions" : {
-        "record:CoreRepos" : {
-          "type" : "object",
-          "required" : [ "name", "description", "core", "packages", "modules" ],
-          "additionalProperties" : False,
-          "properties" : {
-            "name" : {
-              "type" : "string"
+      "definitions": {
+        "record:CoreRepos": {
+          "type": "object",
+          "required": [
+            "name",
+            "description",
+            "core",
+            "packages",
+            "modules"
+          ],
+          "additionalProperties": False,
+          "properties": {
+            "name": {
+              "type": "string"
             },
-            "description" : {
-              "type" : "string"
+            "description": {
+              "type": "string"
             },
-            "core" : {
-              "type" : "array",
-              "items" : {
-                "$ref" : "#/definitions/record:CoreReposP"
+            "core": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/record:CoreReposP"
               }
             },
-            "packages" : {
-              "type" : "array",
-              "items" : {
-                "$ref" : "#/definitions/record:CoreReposPackageP"
+            "packages": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/record:CoreReposPackageP"
               }
             },
-            "modules" : {
-              "type" : "array",
-              "items" : {
-                "$ref" : "#/definitions/record:CoreReposModuleP"
+            "modules": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/record:CoreReposModuleP"
+              }
+            },
+            "libs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/record:CoreReposLibP"
               }
             }
           }
         },
-        "record:CoreReposP" : {
-          "type" : "object",
-          "required" : [ "name", "url", "branch", "description" ],
-          "additionalProperties" : False,
-          "properties" : {
-            "name" : {
-              "type" : "string"
+        "record:CoreReposP": {
+          "type": "object",
+          "required": [
+            "name",
+            "url",
+            "branch",
+            "description"
+          ],
+          "additionalProperties": False,
+          "properties": {
+            "name": {
+              "type": "string"
             },
-            "url" : {
-              "type" : "string"
+            "url": {
+              "type": "string"
             },
-            "branch" : {
-              "type" : "string"
+            "branch": {
+              "type": "string"
             },
-            "description" : {
-              "type" : "string"
+            "description": {
+              "type": "string"
             }
           }
         },
-        "record:CoreReposPackageP" : {
-          "type" : "object",
-          "required" : [ "name", "url", "branch", "description" ],
-          "additionalProperties" : False,
-          "properties" : {
-            "name" : {
-              "type" : "string"
+        "record:CoreReposPackageP": {
+          "type": "object",
+          "required": [
+            "name",
+            "url",
+            "branch",
+            "description"
+          ],
+          "additionalProperties": False,
+          "properties": {
+            "name": {
+              "type": "string"
             },
-            "url" : {
-              "type" : "string"
+            "url": {
+              "type": "string"
             },
-            "branch" : {
-              "type" : "string"
+            "branch": {
+              "type": "string"
             },
-            "description" : {
-              "type" : "string"
+            "description": {
+              "type": "string"
             }
           }
         },
-        "record:CoreReposModuleP" : {
-          "type" : "object",
-          "required" : [ "name", "url", "branch", "description" ],
-          "additionalProperties" : False,
-          "properties" : {
-            "name" : {
-              "type" : "string"
+        "record:CoreReposModuleP": {
+          "type": "object",
+          "required": [
+            "name",
+            "url",
+            "branch",
+            "description"
+          ],
+          "additionalProperties": False,
+          "properties": {
+            "name": {
+              "type": "string"
             },
-            "url" : {
-              "type" : "string"
+            "url": {
+              "type": "string"
             },
-            "branch" : {
-              "type" : "string"
+            "branch": {
+              "type": "string"
             },
-            "description" : {
-              "type" : "string"
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "record:CoreReposLibP": {
+          "type": "object",
+          "required": [
+            "name",
+            "url",
+            "branch",
+            "description"
+          ],
+          "additionalProperties": False,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "branch": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
             }
           }
         }
       },
-      "$ref" : "#/definitions/record:CoreRepos"
+      "$ref": "#/definitions/record:CoreRepos"
     }
 
     REMOTE_URL = "https://github.com/novalabs/core-repos.git"
@@ -239,6 +290,13 @@ class CoreBootstrap:
 
         return self.data["packages"]
 
+    def getLibs(self):
+        if "libs" in self.data:
+            if len(self.data["libs"]) == 0:
+                return None
+
+            return self.data["libs"]
+
     def writeSetupSh(self):
         buffer = []
         buffer.append('export NOVA_CORE_ROOT=' + self.getCoreRoot())
@@ -312,6 +370,22 @@ def fetch(corePath):
             for tmp in bootstrapper.getPackages():
                 printElement(tmp)
                 success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("packages", tmp["name"]))
+                if success == 'fetched':
+                    CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
+                elif success == 'updated':
+                    CoreConsole.out(" |  " + Fore.GREEN + "Updated" + Fore.RESET)
+                elif success == 'dirty':
+                    CoreConsole.out(" |  " + Fore.RED + "Dirty [skipping]" + Fore.RESET)
+                else:
+                    CoreConsole.out(CoreConsole.error(bootstrapper.reason))
+                    failure = True
+            CoreConsole.out("")
+
+        if bootstrapper.getLibs() is not None:
+            CoreConsole.out("Fetching Libraries")
+            for tmp in bootstrapper.getLibs():
+                printElement(tmp)
+                success = bootstrapper.fetchRepo(tmp["url"], tmp["branch"], os.path.join("libs", tmp["name"]))
                 if success == 'fetched':
                     CoreConsole.out(" |  " + Fore.GREEN + "Fetched" + Fore.RESET)
                 elif success == 'updated':
