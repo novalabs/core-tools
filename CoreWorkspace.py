@@ -87,7 +87,7 @@ def createJSON(root):
     sink.write("\n".join(buffer))
 
 
-def createSetup(root):
+def writeSetupSh(root):
     buffer = []
 
     buffer.append('source ' + os.path.join(NOVA_CORE_ROOT, "setup.sh"))
@@ -95,9 +95,18 @@ def createSetup(root):
     buffer.append('')
 
     sink = open(os.path.join(root, "setup.sh"), 'w')
-
     sink.write("\n".join(buffer))
 
+
+def writeSetupBat(root):
+    buffer = []
+
+    buffer.append(os.path.join(NOVA_CORE_ROOT, "setup.sh"))
+    buffer.append('set NOVA_WORKSPACE_ROOT=' + root)
+    buffer.append('')
+
+    sink = open(os.path.join(root, "setup.bat"), 'w')
+    sink.write("\n".join(buffer))
 
 def action_completer(prefix, parsed_args, **kwargs):
     mm = ["ls", "generate", "init", "target"]
@@ -563,7 +572,10 @@ def initialize(force, verbose):
         createJSON(root)
 
         # create setup.sh
-        createSetup(root)
+        if os.name != 'nt':
+            writeSetupSh(root)
+        else:
+            writeSetupBat(root)
 
         # create directories
         mkdir(os.path.join(root, "src"))

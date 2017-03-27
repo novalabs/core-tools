@@ -317,6 +317,21 @@ class CoreBootstrap:
 
         return True
 
+    def writeSetupBat(self):
+        buffer = []
+        buffer.append('set NOVA_CORE_ROOT=' + self.getCoreRoot())
+        buffer.append('set NOVA_CORE_TOOLCHAIN=%NOVA_CORE_ROOT%/gcc-arm-none-eabi')
+        buffer.append('set NOVA_CHIBIOS_ROOT=%NOVA_CORE_ROOT%/chibios_3')
+        buffer.append('set NOVA_CHIBIOS_16_ROOT=%NOVA_CORE_ROOT%/chibios_16')
+        buffer.append('set CMAKE_PREFIX_PATH=%NOVA_CORE_ROOT%/core-cmake')
+        buffer.append('')
+
+        destination = os.path.join(self.getCoreRoot(), "setup.bat")
+
+        sink = open(destination, 'w')
+        sink.write("\n".join(buffer))
+
+        return True
 
 def printElement(x):
     CoreConsole.out(" |- " + Fore.YELLOW + x["name"] + Fore.RESET + ": " + x["description"])
@@ -405,7 +420,10 @@ def fetch(corePath):
         CoreConsole.out("Generating " + Fore.YELLOW + "setup.sh" + Fore.RESET)
         CoreConsole.out("")
 
-        failure = not bootstrapper.writeSetupSh()
+        if os.name != 'nt':
+            failure = not bootstrapper.writeSetupSh()
+        else:
+            failure = not bootstrapper.writeSetupBat()
 
         if failure:
             return False

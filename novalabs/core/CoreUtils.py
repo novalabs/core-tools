@@ -14,7 +14,6 @@ from jsonschema import validate
 
 from .CoreConsole import *
 
-
 TypeFormatMap = {
     "TIMESTAMP": "Q",
     "INT64": "q",
@@ -79,6 +78,7 @@ def checkCTypeValueForCoreType(type, size, value):
     except TypeError as t:
         return None
 
+
 def formatValueAsC(type, value):
     if type == "CHAR":
         return "'" + value + "'"
@@ -105,13 +105,14 @@ def formatValueAsC(type, value):
     else:
         return str(value)
 
+
 def formatValuesAsC(type, size, value):
     buffer = ''
     if size == 1:
         buffer = formatValueAsC(type, value)
     else:
         if type == "CHAR":
-            buffer = '"' + value + '"'  #str(value).encode("ascii")
+            buffer = '"' + value + '"'  # str(value).encode("ascii")
         else:
             buffer = "{"
             for x in value:
@@ -120,6 +121,7 @@ def formatValuesAsC(type, size, value):
             buffer = buffer + "}"
 
     return buffer
+
 
 class Error(Exception):
     """Base class for exceptions in this module."""
@@ -206,11 +208,13 @@ def listFilesByAndStripExtension(path, extension):
     tmp.sort()
     return tmp
 
+
 def loadJson(filename):
     try:
         return loads(open(filename, 'r').read())
     except IOError as e:
         raise CoreError("I/0 Error: " + str(e.strerror), e.filename)
+
 
 def loadAndValidateJson(filename, schema):
     try:
@@ -234,17 +238,20 @@ def findFileGoingUp(filename, cwd=None):
         cwd = os.getcwd()
 
     root = None
-    (drive, tail) = os.path.splitdrive(cwd) 
+    (drive, tail) = os.path.splitdrive(cwd)
     drive = drive + os.sep
 
-    while (cwd != drive):
+    while cwd != drive:
         if os.path.isfile(os.path.join(cwd, filename)):
             root = cwd
             break
 
         (cwd, t) = os.path.split(cwd)
 
-    return root.replace("\\","/")
+    if root is not None:
+        return root.replace("\\", "/")
+    else:
+        return root
 
 
 def copyOrLink(src, dst, rm=True, link=False):
@@ -291,20 +298,22 @@ def getCoreTypeSize(t):
 
     return sizes[t]
 
+
 ## https://github.com/ebrehault/superformatter
 
 import string
+
 
 class SuperFormatter(string.Formatter):
     """World's simplest Template engine."""
 
     def get_value(self, key, args, kwargs):
         if isinstance(key, int):
-            if not key in args:
+            if key not in args:
                 return ''
             return args[key]
         else:
-            if not key in kwargs:
+            if key not in kwargs:
                 return ''
             return kwargs[key]
 
@@ -342,7 +351,7 @@ class CoreReport:
         return self.__buffer.getvalue()
 
     def out(self, message):
-        if (self.enabled):
+        if self.enabled:
             print(message, file=self.__buffer)
 
     def highlight(self, message):
