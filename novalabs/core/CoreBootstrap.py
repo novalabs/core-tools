@@ -319,11 +319,14 @@ class CoreBootstrap:
 
     def writeSetupBat(self):
         buffer = []
-        buffer.append('set NOVA_CORE_ROOT=' + self.getCoreRoot())
+        buffer.append('@echo off')
+        buffer.append('set NOVA_CORE_ROOT=' + self.getCoreRoot().replace('\\', '/'))
         buffer.append('set NOVA_CORE_TOOLCHAIN=%NOVA_CORE_ROOT%/gcc-arm-none-eabi')
         buffer.append('set NOVA_CHIBIOS_ROOT=%NOVA_CORE_ROOT%/chibios_3')
         buffer.append('set NOVA_CHIBIOS_16_ROOT=%NOVA_CORE_ROOT%/chibios_16')
         buffer.append('set CMAKE_PREFIX_PATH=%NOVA_CORE_ROOT%/core-cmake')
+        buffer.append('set CMAKE_MODULE_PATH=%NOVA_CORE_ROOT%/core-cmake')
+        buffer.append('set PATH=%PATH%;' + os.path.join(self.getCoreRoot(), 'core-tools'))
         buffer.append('')
 
         destination = os.path.join(self.getCoreRoot(), "setup.bat")
