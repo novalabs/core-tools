@@ -7,7 +7,7 @@
 
 import os
 import re
-from colorama import Fore, Back, Style
+from colorama import Fore, Back, Style, init
 from tabulate import tabulate
 
 class CoreConsole:
@@ -19,6 +19,8 @@ class CoreConsole:
 
     FORE_HIGHLIGHT = Fore.YELLOW
     FORE_RESET = Fore.RESET
+
+    init()
 
     def __init__(self):
         True
