@@ -39,6 +39,17 @@ class CoreWorkspaceBase:
     def isValid(self):
         pass
 
+    def getRoot(self, cwd=None):
+        if self.root is None:  # Check for cached value
+            self.root = findFileGoingUp("WORKSPACE.json", cwd)
+            if self.root is not None:
+                CoreConsole.ok("CoreWorkspace::getRoot: Workspace found in " + CoreConsole.highlightFilename(self.root))
+            else:
+                self.reason = "CoreWorkspace::getRoot: Not inside a Workspace"
+                CoreConsole.fail(self.reason)
+
+        return self.root
+
     def getSourcesPath(self):
         if self.sources is None:  # Check for cached value
             if self.getRoot() is not None:
@@ -127,17 +138,6 @@ class CoreWorkspace(CoreContainer, CoreWorkspaceBase):
         self.valid = False
         self.opened = False
         self.reason = ""
-
-    def getRoot(self, cwd=None):
-        if self.root is None:  # Check for cached value
-            self.root = findFileGoingUp("WORKSPACE.json", cwd)
-            if self.root is not None:
-                CoreConsole.ok("CoreWorkspace::getRoot: Workspace found in " + CoreConsole.highlightFilename(self.root))
-            else:
-                self.reason = "CoreWorkspace::getRoot: Not inside a Workspace"
-                CoreConsole.fail(self.reason)
-
-        return self.root
 
     def openJSON(self, jsonFile):
         CoreConsole.info("WORKSPACE: " + CoreConsole.highlightFilename(jsonFile))
@@ -339,17 +339,6 @@ class Workspace(CoreWorkspaceBase):
         self.modulesWorkspaceDependencies = []
         self.modulesCoreDependencies = []
         self.modulesNoneDependencies = []
-
-    def getRoot(self, cwd=None):
-        if self.root is None:  # Check for cached value
-            self.root = findFileGoingUp("WORKSPACE.json", cwd)
-            if self.root is not None:
-                CoreConsole.ok("CoreWorkspace::getRoot: Workspace found in " + CoreConsole.highlightFilename(self.root))
-            else:
-                self.reason = "CoreWorkspace::getRoot: Not inside a Workspace"
-                CoreConsole.fail(self.reason)
-
-        return self.root
 
     def open(self, coreRoot=None, workspaceRoot=None):
         self.__init__()
