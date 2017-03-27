@@ -53,7 +53,7 @@ if CMAKE_MODULE_PATH is None:
 def cmakeCommand(chip, source, buildType, OSVersion="CHIBIOS_3", workspaceRoot=NOVA_WORKSPACE_ROOT):
     cmake_cmd = "cmake --verbose"
     cmake_cmd += " -DSTM32_CHIP=" + chip
-    cmake_cmd += " -DCMAKE_TOOLCHAIN_FILE=" + CMAKE_PREFIX_PATH + "/gcc_stm32.cmake"
+    cmake_cmd += " -DCMAKE_TOOLCHAIN_FILE=" + os.path.join(CMAKE_PREFIX_PATH, "gcc_stm32.cmake")
     cmake_cmd += " -DCMAKE_BUILD_TYPE=" + buildType
     cmake_cmd += " -DTOOLCHAIN_PREFIX=" + NOVA_CORE_TOOLCHAIN
     cmake_cmd += " -DCMAKE_MODULE_PATH=" + CMAKE_MODULE_PATH
