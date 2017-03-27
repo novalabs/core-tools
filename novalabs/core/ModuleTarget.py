@@ -20,6 +20,16 @@ class ModuleTarget:
           ],
           "additionalProperties": False,
           "properties": {
+            "type": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/definitions/enum:TargetType"
+                }
+              ]
+            },
             "name": {
               "type": "string"
             },
@@ -78,6 +88,12 @@ class ModuleTarget:
             "CHIBIOS_3",
             "CHIBIOS_16"
           ]
+        },
+        "enum:TargetType": {
+          "enum": [
+            "bootloader",
+            "application"
+          ]
         }
       },
       "$ref": "#/definitions/record:ModuleTarget"
@@ -95,6 +111,7 @@ class ModuleTarget:
 
         self.data = None
 
+        self.type = ""
         self.name = ""
         self.namespace = ""
         self.description = ""
@@ -126,6 +143,12 @@ class ModuleTarget:
             self.data = loadAndValidateJson(jsonFile, ModuleTarget.schema)
             if self.targetName == self.data["name"]:
                 self.source = jsonFile
+
+                if "type" in self.data:
+                    self.type = self.data["type"]
+                else:
+                    self.type = "application"
+
                 self.name = self.data["name"]
                 self.description = self.data["description"]
                 self.module = self.data["module"]
@@ -261,12 +284,18 @@ class ModuleTarget:
         self.buffer.append('# Remove a "#" from the line below to stop generating this file every time you call CoreWorkspace generate')
         self.buffer.append('## TARGET MODULE ' + self.module)
         self.buffer.append('')
+        if self.type == "bootloader":
+            self.buffer.append('SET(STM32_USE_NANO_SPECS 1)')
+            self.buffer.append('')
         self.buffer.append('PROJECT( ' + self.name + ' )')
         self.buffer.append('CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )')
         self.buffer.append('')
         self.buffer.append('FIND_PACKAGE( CORE_BUILD CONFIG REQUIRED )')
         self.buffer.append('')
-        self.buffer.append('INCLUDE ( CoreTarget NO_POLICY_SCOPE )')
+        if self.type == "application":
+            self.buffer.append('INCLUDE ( CoreTarget NO_POLICY_SCOPE )')
+        elif self.type == "bootloader":
+            self.buffer.append('INCLUDE ( CoreBootloaderTarget NO_POLICY_SCOPE )')
         self.buffer.append('')
 
     def __processBootloaderAndConfiguration(self):
@@ -289,7 +318,10 @@ class ModuleTarget:
         self.buffer.append('')
 
     def __processCoreTarget(self):
-        self.buffer.append('core_target_module(')
+        if self.type == "application":
+            self.buffer.append('core_target_module(')
+        elif self.type == "bootloader":
+            self.buffer.append('core_bootloader_target_module(')
         self.buffer.append('  MODULE ' + self.module)
         if self.os_version is not None:
             self.buffer.append('  OS_VERSION ' + self.os_version)
@@ -319,14 +351,14 @@ class ModuleTarget:
             src = os.path.relpath(self.moduleTargetRoot, relpath)
 
         if self.valid:
-            return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.success("OK")]
+            return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.success("OK")]
         else:
-            return ["", "", "", "", src, CoreConsole.error(self.reason)]
+            return ["", "", "", "", "", src, CoreConsole.error(self.reason)]
 
 
     @staticmethod
     def getSummaryFields():
-        return ["Name", "Description", "Module", "OS Version", "Root", "Status"]
+        return ["Type", "Name", "Description", "Module", "OS Version", "Root", "Status"]
 
 
     def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
@@ -342,14 +374,14 @@ class ModuleTarget:
                 dst = self.destination
 
             if self.generated:
-                return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, dst]
+                return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, dst]
             else:
-                return [CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.error(self.reason)]
+                return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.error(self.reason)]
         else:
-            return ["", CoreConsole.error(self.reason), "", "", ""]
+            return ["","", CoreConsole.error(self.reason), "", "", ""]
 
 
     @staticmethod
     def getSummaryFieldsGenerate():
-        return ["Name", "Description", "Module", "OS Version", "Root", "Generate"]
+        return ["Type", "Name", "Description", "Module", "OS Version", "Root", "Generate"]
 
