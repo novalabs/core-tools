@@ -101,7 +101,8 @@ def writeSetupSh(root):
 def writeSetupBat(root):
     buffer = []
 
-    buffer.append(os.path.join(NOVA_CORE_ROOT, "setup.sh"))
+    buffer.append('@echo off')
+    buffer.append(os.path.join(NOVA_CORE_ROOT, "setup.bat"))
     buffer.append('set NOVA_WORKSPACE_ROOT=' + root)
     buffer.append('')
 
@@ -564,18 +565,17 @@ def initialize(force, verbose):
                 CoreConsole.out(CoreConsole.warning("Workspace already initialized, ignoring..."))
                 root = workspace.getRoot()
                 os.unlink(os.path.join(root, "WORKSPACE.json"))
-                tmp = os.path.join(root, "setup.sh")
-                if os.path.isfile(tmp):
-                    os.unlink(tmp)
+                if os.name != 'nt':
+                    tmp = os.path.join(root, "setup.sh")
+                    if os.path.isfile(tmp):
+                        os.unlink(tmp)
+                else:
+                    tmp = os.path.join(root, "setup.bat")
+                    if os.path.isfile(tmp):
+                        os.unlink(tmp)
 
         # create WORKSPACE.json
         createJSON(root)
-
-        # create setup.sh
-        if os.name != 'nt':
-            writeSetupSh(root)
-        else:
-            writeSetupBat(root)
 
         # create directories
         mkdir(os.path.join(root, "src"))
@@ -593,7 +593,15 @@ def initialize(force, verbose):
         mkdir(os.path.join(root, "build", "params"))
 
         CoreConsole.out("Workspace initialized.")
-        CoreConsole.out("You can now do a 'source setup.sh'")
+
+        # create setup.sh
+        if os.name != 'nt':
+            writeSetupSh(root)
+            CoreConsole.out("You can now do a 'source setup.sh'")
+        else:
+            writeSetupBat(root)
+            CoreConsole.out("You can now execute 'setup.bat'")
+
     except IOError as e:
         CoreConsole.out(CoreConsole.error(str(e.strerror) + " [" + CoreConsole.highlightFilename(e.filename) + "]"))
         isOk = False
