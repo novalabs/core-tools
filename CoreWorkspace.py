@@ -128,7 +128,7 @@ def module_completer(prefix, parsed_args, **kwargs):
 
 
 def build_type_completer(prefix, parsed_args, **kwargs):
-    mm = ["debug", "release"]
+    mm = ["debug", "release", "minsizerel"]
     return (m for m in mm if m.startswith(prefix))
 
 
@@ -684,7 +684,7 @@ if '__main__' == __name__:
         parser_ls = subparsers.add_parser('ls', help='Lists the Module')
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
-        #        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
+        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
@@ -727,7 +727,10 @@ if '__main__' == __name__:
 
         if args.action == "generate":
             force = args.force
-            buildTypes = ["debug", "release"]
+            if args.build_type is None:
+                buildTypes = ["debug", "release"]
+            else:
+                buildTypes = [args.build_type]
 
             retval = generate(None, None, buildTypes, force, verbose)
 
