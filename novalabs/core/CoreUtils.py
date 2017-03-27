@@ -234,15 +234,17 @@ def findFileGoingUp(filename, cwd=None):
         cwd = os.getcwd()
 
     root = None
+    (drive, tail) = os.path.splitdrive(cwd) 
+    drive = drive + os.sep
 
-    while cwd != "/":
+    while (cwd != drive):
         if os.path.isfile(os.path.join(cwd, filename)):
             root = cwd
             break
 
         (cwd, t) = os.path.split(cwd)
 
-    return root
+    return root.replace("\\","/")
 
 
 def copyOrLink(src, dst, rm=True, link=False):
