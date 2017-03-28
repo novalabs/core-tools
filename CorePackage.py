@@ -11,6 +11,7 @@ import argcomplete
 import io
 
 from novalabs.core.CorePackage import *
+from novalabs.generators import *
 
 def action_completer(prefix, parsed_args, **kwargs):
     mm = ["ls", "generate"]
@@ -186,17 +187,18 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     tmp = package.listConfigurationFiles()
     for x in tmp:
         conf = CoreConfiguration()
+        gen = CoreConfigurationGenerator(conf)
         if conf.open(x, package):
-            conf.generate(targetPath)
+            gen.generate(targetPath)
 
-        table.append(conf.getSummaryGenerate(package.packageRoot, package.destination))
+        table.append(gen.getSummaryGenerate(package.packageRoot, package.destination))
 
-        if not conf.generated:
+        if not gen.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("CONFIGURATIONS"))
-        CoreConsole.out(CoreConsole.table(table, CoreConfiguration.getSummaryFieldsGenerate()))
+        CoreConsole.out(CoreConsole.table(table, CoreConfigurationGenerator.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
     # --- Generate messages -------------------------------------------------------
@@ -204,17 +206,19 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     tmp = package.listMessageFiles()
     for x in tmp:
         message = CoreMessage()
+        gen = CoreMessageGenerator(message)
+
         if message.open(x, package):
-            message.generate(targetPath)
+            gen.generate(targetPath)
 
-        table.append(message.getSummaryGenerate(package.packageRoot, package.destination))
+        table.append(gen.getSummaryGenerate(package.packageRoot, package.destination))
 
-        if not message.generated:
+        if not gen.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
-        CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFieldsGenerate()))
+        CoreConsole.out(CoreConsole.table(table, CoreMessageGenerator.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
     # --- Generate nodes ----------------------------------------------------------
