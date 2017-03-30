@@ -14,6 +14,8 @@ import subprocess
 from novalabs.core.CoreWorkspace import *
 from CoreModule import generate as generateModule
 from CorePackage import generate as generatePackage
+import novalabs.generators as generators
+
 
 # ENVIRONMENT VARIABLES -------------------------------------------------------
 
@@ -408,9 +410,11 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
         executeCmake = True
 
-        m.generate(target_root, not mustGenerate)
-        if m.generated:
-            fields = [CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate)]
+        gen = generators.ModuleTargetGenerator(m)
+
+        gen.generate(target_root, not mustGenerate)
+        if gen.generated:
+            fields = [CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(gen.destination, workspace.getRoot()), str(mustGenerate)]
             headers = ["Name", "Description", "CoreModule", "Chip", "OS Version", "CMakeLists", "Generated CMakeLists"]
         else:
             executeCmake = False
@@ -422,7 +426,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         for buildType in buildTypes:
             headers += ["Build (" + buildType + ")", "CMake (" + buildType + ")"]
 
-            if m.generated:
+            if gen.generated:
                 dest = os.path.join(workspace.getBuildPath(), buildType)
                 if not os.path.isdir(dest):
                     os.mkdir(dest)
