@@ -5,98 +5,99 @@
 
 from .CoreUtils import *
 
+
 class ModuleTarget:
-    schema = {
-      "definitions": {
-        "record:ModuleTarget": {
-          "type": "object",
-          "required": [
-            "name",
-            "description",
-            "module",
-            "required_packages",
-            "sources",
-            "includes"
-          ],
-          "additionalProperties": False,
-          "properties": {
-            "type": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/definitions/enum:TargetType"
+    SCHEMA = {
+        "definitions": {
+            "record:ModuleTarget": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "description",
+                    "module",
+                    "required_packages",
+                    "sources",
+                    "includes"
+                ],
+                "additionalProperties": False,
+                "properties": {
+                    "type": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/definitions/enum:TargetType"
+                            }
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "module": {
+                        "type": "string"
+                    },
+                    "os_version": {
+                        "oneOf": [
+                            {
+                                "type": "null"
+                            },
+                            {
+                                "$ref": "#/definitions/enum:OSVersion"
+                            }
+                        ]
+                    },
+                    "required_packages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "required_os_components": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "sources": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "includes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "bootloader_size": {
+                        "default": 0,
+                        "type": "integer"
+                    },
+                    "configuration_size": {
+                        "default": 0,
+                        "type": "integer"
+                    }
                 }
-              ]
             },
-            "name": {
-              "type": "string"
+            "enum:OSVersion": {
+                "enum": [
+                    "CHIBIOS_3",
+                    "CHIBIOS_16"
+                ]
             },
-            "description": {
-              "type": "string"
-            },
-            "module": {
-              "type": "string"
-            },
-            "os_version": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/definitions/enum:OSVersion"
-                }
-              ]
-            },
-            "required_packages": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "required_os_components": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "sources": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "includes": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "bootloader_size": {
-              "default": 0,
-              "type": "integer"
-            },
-            "configuration_size": {
-              "default": 0,
-              "type": "integer"
+            "enum:TargetType": {
+                "enum": [
+                    "bootloader",
+                    "application"
+                ]
             }
-          }
         },
-        "enum:OSVersion": {
-          "enum": [
-            "CHIBIOS_3",
-            "CHIBIOS_16"
-          ]
-        },
-        "enum:TargetType": {
-          "enum": [
-            "bootloader",
-            "application"
-          ]
-        }
-      },
-      "$ref": "#/definitions/record:ModuleTarget"
+        "$ref": "#/definitions/record:ModuleTarget"
     }
 
     DEFAULT_OS_VERSION = "CHIBIOS_3"
@@ -121,12 +122,7 @@ class ModuleTarget:
         self.bootloader_size = 0
         self.configuration_size = 0
 
-        self.destination = ""
-
-        self.buffer = []
-
         self.valid = False
-        self.generated = False
         self.reason = ""
 
         self.sources = None
@@ -136,11 +132,80 @@ class ModuleTarget:
 
         self.coreModule = None
 
-    def openJSON(self, jsonFile):
+    def open(self, root=None, name=None):
+        self.__init__()
+
+        CoreConsole.info("ModuleTarget::open(" + str(root) + ", " + str(name) + ")")
+
+        if root is not None:
+            if name is not None:
+                self.moduleTargetRoot = os.path.join(root, name)
+            else:
+                self.moduleTargetRoot = root
+        else:
+            self.moduleTargetRoot = self.getRoot()
+
+        if self.moduleTargetRoot is not None:
+            (root, name) = os.path.split(self.moduleTargetRoot)
+        else:
+            return False
+
+        self.root = root
+        self.targetName = name
+
+        filename = os.path.join(self.moduleTargetRoot, "MODULE_TARGET.json")
+
+        try:
+            return self.__openJSON(filename)
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("ParametersTarget::open " + self.reason)
+
+        self.valid = False
+        return False
+
+    def getRoot(self, cwd=None):
+        if self.root is None:  # Check for cached value
+            self.root = findFileGoingUp("MODULE_TARGET.json", cwd)
+            if self.root is not None:
+                CoreConsole.ok("ModuleTarget::getRoot: ModuleTarget found in " + CoreConsole.highlightFilename(self.root))
+            else:
+                self.reason = "ModuleTarget::getRoot: Not inside a ModuleTarget"
+                CoreConsole.fail(self.reason)
+
+        return self.root
+
+    @staticmethod
+    def check(root, name=None):
+        if name is None:
+            return os.path.exists(os.path.join(root, "MODULE_TARGET.json"))
+        else:
+            return os.path.exists(os.path.join(root, name, "MODULE_TARGET.json"))
+
+    def getSummary(self, relpath=None):
+        if relpath is not None:
+            src = os.path.relpath(self.moduleTargetRoot, relpath)
+        else:
+            src = os.path.relpath(self.moduleTargetRoot, relpath)
+
+        if self.valid:
+            return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.success("OK")]
+        else:
+            return ["", "", "", "", "", src, CoreConsole.error(self.reason)]
+
+    @staticmethod
+    def getSummaryFields():
+        return ["Type", "Name", "Description", "Module", "OS Version", "Root", "Status"]
+
+    # ---------------------------------------------------------------------------- #
+    # --- PRIVATE ---------------------------------------------------------------- #
+    # ---------------------------------------------------------------------------- #
+
+    def __openJSON(self, jsonFile):
         CoreConsole.info("MODULE_TARGET: " + CoreConsole.highlightFilename(jsonFile))
 
         try:
-            self.data = loadAndValidateJson(jsonFile, ModuleTarget.schema)
+            self.data = loadAndValidateJson(jsonFile, ModuleTarget.SCHEMA)
             if self.targetName == self.data["name"]:
                 self.source = jsonFile
 
@@ -196,192 +261,3 @@ class ModuleTarget:
             CoreConsole.fail("ModuleTarget::openJSON: " + self.reason)
 
         return False
-
-    def getRoot(self, cwd = None):
-        if self.root is None:  # Check for cached value
-            self.root = findFileGoingUp("MODULE_TARGET.json", cwd)
-            if self.root is not None:
-                CoreConsole.ok("ModuleTarget::getRoot: ModuleTarget found in " + CoreConsole.highlightFilename(self.root))
-            else:
-                self.reason = "ModuleTarget::getRoot: Not inside a ModuleTarget"
-                CoreConsole.fail(self.reason)
-
-        return self.root
-
-    def open(self, root=None, name=None):
-        self.__init__()
-
-        CoreConsole.info("ModuleTarget::open(" + str(root) + ", " + str(name) + ")")
-
-        if root is not None:
-            if name is not None:
-                self.moduleTargetRoot = os.path.join(root, name)
-            else:
-                self.moduleTargetRoot = root
-        else:
-            self.moduleTargetRoot = self.getRoot()
-
-        if self.moduleTargetRoot is not None:
-            (root, name) = os.path.split(self.moduleTargetRoot)
-        else:
-            return False
-
-        self.root = root
-        self.targetName = name
-
-        filename = os.path.join(self.moduleTargetRoot, "MODULE_TARGET.json")
-
-        try:
-            return self.openJSON(filename)
-        except CoreError as e:
-            self.reason = str(e)
-            CoreConsole.fail("ParametersTarget::open " + self.reason)
-
-        self.valid = False
-        return False
-
-    def generate(self, out="", skip=False):
-        self.generated = False
-        if self.valid:
-            try:
-                if out == "":
-                    out = os.path.join(self.workspace, self.name)
-                else:
-                    if not os.path.isdir(out):
-                        os.mkdir(out)
-
-                self.destination = os.path.join(out, "CMakeLists.txt")
-
-                if not skip:
-                    sink = open(self.destination, 'w')
-
-                    self.process()
-
-                    sink.write("\n".join(self.buffer))
-                    CoreConsole.ok("ModuleTarget::generate " + CoreConsole.highlightFilename(self.destination))
-                else:
-                    CoreConsole.ok("ModuleTarget::generate " + CoreConsole.highlightFilename(self.destination) + " SKIPPED")
-
-                self.generated = True
-            except IOError as e:
-                self.reason = CoreConsole.error(str(e.strerror) + " [" + CoreConsole.highlightFilename(e.filename) + "]")
-                CoreConsole.fail("ModuleTarget::generate: " + self.reason)
-
-        return False
-
-
-    def process(self):
-        self.buffer = []
-        if self.valid:
-            self.__processPreamble()
-            self.__processBootloaderAndConfiguration()
-            self.__processIncludes()
-            self.__processSources()
-            self.__processCoreTarget()
-
-    def __processPreamble(self):
-        self.buffer.append('# Generated by ModuleTarget.py')
-        self.buffer.append('# Remove a "#" from the line below to stop generating this file every time you call CoreWorkspace generate')
-        self.buffer.append('## TARGET MODULE ' + self.module)
-        self.buffer.append('')
-        if self.type == "bootloader":
-            self.buffer.append('SET(STM32_USE_NANO_SPECS 1)')
-            self.buffer.append('')
-        self.buffer.append('PROJECT( ' + self.name + ' )')
-        self.buffer.append('CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )')
-        self.buffer.append('')
-        self.buffer.append('FIND_PACKAGE( CORE_BUILD CONFIG REQUIRED )')
-        self.buffer.append('')
-        if self.type == "application":
-            self.buffer.append('INCLUDE ( CoreTarget NO_POLICY_SCOPE )')
-        elif self.type == "bootloader":
-            self.buffer.append('INCLUDE ( CoreBootloaderTarget NO_POLICY_SCOPE )')
-        self.buffer.append('')
-
-    def __processBootloaderAndConfiguration(self):
-        self.buffer.append('SET( BOOTLOADER_SIZE ' + str(self.bootloader_size) + ' )')
-        self.buffer.append('SET( CONFIGURATION_SIZE ' + str(self.configuration_size) + ' )')
-        self.buffer.append('')
-
-    def __processIncludes(self):
-        self.buffer.append('SET( PROJECT_INCLUDE_DIRECTORIES')
-        for x in self.includes:
-            self.buffer.append('  ' + x)
-        self.buffer.append(')')
-        self.buffer.append('')
-
-    def __processSources(self):
-        self.buffer.append('SET( PROJECT_SOURCES')
-        for x in self.sources:
-            self.buffer.append('  ' + x)
-        self.buffer.append(')')
-        self.buffer.append('')
-
-    def __processCoreTarget(self):
-        if self.type == "application":
-            self.buffer.append('core_target_module(')
-        elif self.type == "bootloader":
-            self.buffer.append('core_bootloader_target_module(')
-        self.buffer.append('  MODULE ' + self.module)
-        if self.os_version is not None:
-            self.buffer.append('  OS_VERSION ' + self.os_version)
-        if len(self.requiredPackages) > 0:
-            self.buffer.append('  PACKAGES')
-            for x in self.requiredPackages:
-                self.buffer.append('    ' + x)
-        if len(self.requiredOSComponents) > 0:
-            self.buffer.append('  OS_COMPONENTS')
-            for x in self.requiredOSComponents:
-                self.buffer.append('    ' + x)
-        self.buffer.append(')')
-        self.buffer.append('')
-
-    @staticmethod
-    def check(root, name=None):
-        if name is None:
-            return os.path.exists(os.path.join(root, "MODULE_TARGET.json"))
-        else:
-            return os.path.exists(os.path.join(root, name, "MODULE_TARGET.json"))
-
-
-    def getSummary(self, relpath=None):
-        if relpath is not None:
-            src = os.path.relpath(self.moduleTargetRoot, relpath)
-        else:
-            src = os.path.relpath(self.moduleTargetRoot, relpath)
-
-        if self.valid:
-            return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.success("OK")]
-        else:
-            return ["", "", "", "", "", src, CoreConsole.error(self.reason)]
-
-
-    @staticmethod
-    def getSummaryFields():
-        return ["Type", "Name", "Description", "Module", "OS Version", "Root", "Status"]
-
-
-    def getSummaryGenerate(self, relpathSrc=None, relpathDst=None):
-        if self.valid:
-            if relpathSrc is not None:
-                src = os.path.relpath(self.moduleTargetRoot, relpathSrc)
-            else:
-                src = os.path.relpath(self.moduleTargetRoot, relpathSrc)
-
-            if relpathDst is not None:
-                dst = os.path.relpath(self.destination, relpathDst)
-            else:
-                dst = self.destination
-
-            if self.generated:
-                return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, dst]
-            else:
-                return [self.type, CoreConsole.highlight(self.name), self.description, self.module, self.os_version, src, CoreConsole.error(self.reason)]
-        else:
-            return ["","", CoreConsole.error(self.reason), "", "", ""]
-
-
-    @staticmethod
-    def getSummaryFieldsGenerate():
-        return ["Type", "Name", "Description", "Module", "OS Version", "Root", "Generate"]
-
