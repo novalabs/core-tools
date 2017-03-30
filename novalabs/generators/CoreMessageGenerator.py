@@ -4,7 +4,7 @@
 # subject to the License Agreement located in the file LICENSE.
 
 from novalabs.core.CoreUtils import *
-from novalabs.core.CoreMessage import CoreMessage
+from novalabs.core import CoreMessage
 
 
 class CoreMessageGenerator :

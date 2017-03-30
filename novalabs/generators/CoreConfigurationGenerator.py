@@ -4,7 +4,7 @@
 # subject to the License Agreement located in the file LICENSE.
 
 from novalabs.core.CoreUtils import *
-from novalabs.core.CoreConfiguration import CoreConfiguration
+from novalabs.core import CoreConfiguration
 
 
 class CoreConfigurationGenerator :
