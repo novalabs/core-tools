@@ -228,17 +228,18 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     tmp = package.listNodeFiles()
     for x in tmp:
         node = CoreNode()
+        gen = generators.CoreNodeGenerator(node)
         if node.open(x, package):
-            node.generate(targetPath)
+            gen.generate(targetPath)
 
-        table.append(node.getSummaryGenerate(package.packageRoot, package_gen.destination))
+        table.append(gen.getSummaryGenerate(package.packageRoot, package_gen.destination))
 
-        if not node.generated:
+        if not gen.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
-        CoreConsole.out(CoreConsole.table(table, CoreNode.getSummaryFieldsGenerate()))
+        CoreConsole.out(CoreConsole.table(table,  generators.CoreNodeGenerator.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
     # --- Generate documentation --------------------------------------------------
