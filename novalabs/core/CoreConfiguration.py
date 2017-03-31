@@ -7,6 +7,7 @@ import zlib
 import struct
 
 from .CoreUtils import *
+from .CoreTypes import *
 
 
 class CoreConfiguration:
@@ -123,7 +124,7 @@ class CoreConfiguration:
             if field['type'] == 'CHAR' and field['size'] > 1:
                 formatString = formatString + '%ds' % field['size']
             else:
-                formatString = formatString + field['size'] * TypeFormatMap[field['type']]
+                formatString = formatString + field['size'] * TYPE_FORMAT_MAP[field['type']]
 
             value = None
 
