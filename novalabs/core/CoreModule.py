@@ -88,7 +88,7 @@ class CoreModule:
 
                 return True
             else:
-                raise CoreError("Module filename/name mismatch")
+                raise CoreError("Module filename/name mismatch", jsonFile)
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("CoreModule::openJSON: " + self.reason)
