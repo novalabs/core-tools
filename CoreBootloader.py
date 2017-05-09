@@ -53,7 +53,7 @@ def _create_argsparser():
 
     parser_boot = subparsers.add_parser('boot', help='Ask the modules (at boot) to go into bootloader mode')
 
-    parser_id = subparsers.add_parser('id', help='Identify a Module')
+    parser_id = subparsers.add_parser('identify', help='Identify a Module')
     parser_id.add_argument('uid', nargs=1, help="UID", default=None)
 
     #parser_select = subparsers.add_parser('select', help='Selects a Module')
@@ -77,6 +77,10 @@ def _create_argsparser():
     parser_write_name = subparsers.add_parser('name', help='Write the module name')
     parser_write_name.add_argument('uid', nargs=1, help="UID", default=None)
     parser_write_name.add_argument('name', nargs=1, help="NAME", default=None)
+
+    parser_write_name = subparsers.add_parser('id', help='Write the module name')
+    parser_write_name.add_argument('uid', nargs=1, help="UID", default=None)
+    parser_write_name.add_argument('id', nargs=1, help="ID", default=None)
 
     parser_read = subparsers.add_parser('read', help='Write the module name')
     parser_read.add_argument('uid', nargs=1, help="UID", default=None)
@@ -357,6 +361,35 @@ def name(mw, transport, args):
 
     return retval
 
+def moduleid(mw, transport, args):
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 1
+
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+    id = int(args.id[0])
+
+    if id > 0xFE:
+        print("ID must be < 0xFE")
+        return 1
+
+    if not bl.select(uid):
+        print("Cannot select device")
+        return 1
+
+    if not bl.write_id(uid, id):
+        print("Cannot write module id")
+        return 1
+
+    bl.deselect(uid)
+
+    bl.stop()
+
+    return retval
+
+
 def read(mw, transport, args):
     bl = MW.Bootloader()
     bl.start()
@@ -412,7 +445,7 @@ def _main():
     if args.action == 'ls':
         retval = ls(mw, transport, args)
 
-    if args.action == 'id':
+    if args.action == 'identify':
         retval = identify(mw, transport, args)
 
     if args.action == 'select':
@@ -432,6 +465,9 @@ def _main():
 
     if args.action == 'name':
         retval = name(mw, transport, args)
+
+    if args.action == 'id':
+        retval = moduleid(mw, transport, args)
 
     if args.action == 'read':
         retval = read(mw, transport, args)
