@@ -8,76 +8,76 @@ from .CoreUtils import *
 
 class CoreNode:
     SCHEMA = {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "description": {
-          "type": "string"
-        },
-        "namespace": {
-          "type": "string"
-        },
-        "configuration": {
-          "type": "string"
-        },
-        "publishers": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
+        "type": "object",
+        "properties": {
+            "name": {
                 "type": "string"
-              },
-              "description": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              },
-              "notes": {
-                "type": "string"
-              }
             },
-            "required": [
-              "name",
-              "description",
-              "type"
-            ],
-          "additionalProperties" : True,
-          }
-        },
-        "subscribers": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
+            "description": {
                 "type": "string"
-              },
-              "description": {
-                "type": "string"
-              },
-              "type": {
-                "type": "string"
-              }
             },
-            "required": [
-              "name",
-              "description",
-              "type"
-            ],
-          "additionalProperties" : True,
-          }
-        }
-      },
-      "required": [
-        "name",
-        "description",
-        "namespace",
-        "configuration"
-      ]
+            "namespace": {
+                "type": "string"
+            },
+            "configuration": {
+                "type": "string"
+            },
+            "publishers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        },
+                        "notes": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "description",
+                        "type"
+                    ],
+                    "additionalProperties": True,
+                }
+            },
+            "subscribers": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "name",
+                        "description",
+                        "type"
+                    ],
+                    "additionalProperties": True,
+                }
+            }
+        },
+        "required": [
+            "name",
+            "description",
+            "namespace",
+            "configuration"
+        ]
     }
 
     def __init__(self):
@@ -91,12 +91,7 @@ class CoreNode:
         self.namespace = ""
         self.description = ""
 
-        self.docDestination = ""
-
-        self.buffer = []
-
         self.valid = False
-        self.generated = False
         self.reason = ""
 
     def open(self, name, package=None):
@@ -194,4 +189,3 @@ class CoreNode:
             self.reason = str(e)
             CoreConsole.fail("CoreNode::preProcess: " + self.reason)
             return False
-
