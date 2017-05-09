@@ -7,6 +7,8 @@ from novalabs.core.CoreTypes import *
 from novalabs.core.CoreUtils import *
 from novalabs.core import CoreConfiguration
 
+import copy
+import json
 
 class CoreConfigurationGenerator :
     def __init__(self, obj : CoreConfiguration):
@@ -18,6 +20,9 @@ class CoreConfigurationGenerator :
         self.hppDestination = ""
         self.cppDestination = ""
         self.docDestination = ""
+        self.schemaDestination = ""
+
+        self.schema = dict()
 
         self.buffer = []
 
@@ -29,6 +34,9 @@ class CoreConfigurationGenerator :
             return False
 
         if not self.__generateDocumentation(path):
+            return False
+
+        if not self.__generateSchema(path):
             return False
 
         for field in self.object.data['fields']:
@@ -187,6 +195,45 @@ class CoreConfigurationGenerator :
 
         return True
 
+    def __generateSchema(self, path):
+        self.generated = False
+
+        try:
+            if self.object.valid:
+                if path == "":
+                    raise CoreError("'out' file is empty")
+                try:
+                    if self.object.package is not None:
+                        path = os.path.join(path, self.object.package.name, "schema", self.object.package.provider, self.object.package.name)
+                    else:
+                        raise CoreError("Implementation changed. 'self.package' MUST be defined")
+
+                    if not os.path.isdir(path):
+                        os.makedirs(path)
+
+                    self.schemaDestination = os.path.join(path, (self.object.name + ".json"))
+
+                    self.__processSchema()
+
+                    sink = open(self.schemaDestination, 'w')
+                    sink.write(json.dumps(self.schema, indent=4, separators=(',', ': ')))
+
+                    CoreConsole.ok("CoreConfiguration::generateSchema " + CoreConsole.highlightFilename(self.schemaDestination))
+
+                    self.generated = True
+
+                except IOError as e:
+                    raise CoreError(str(e.strerror), e.filename)
+            else:
+                return False
+
+        except CoreError as e:
+            self.reason = str(e)
+            CoreConsole.fail("CoreConfiguration::generateSchema: " + self.reason)
+            return False
+
+        return True
+
     def __processHeader(self):
         self.buffer = []
 
@@ -223,6 +270,13 @@ class CoreConfigurationGenerator :
             self.__processDocumentationPreamble()
             self.__processDocumentationFields()
             self.__processDocumentationEnd()
+
+    def __processSchema(self):
+        self.buffer = []
+        if self.object.valid:
+            self.__processSchemaPreamble()
+            self.__processSchemaFields()
+            self.__processSchemaEnd()
 
     def __processHeaderPreamble(self):
         self.buffer.append('#pragma once')
@@ -349,6 +403,26 @@ _{field[notes]}_}"""
             self.buffer.append(s.format(t_field, field=field, emit_notes=field['notes'] is not None,  emit_default=field['default'] is not None))
 
         self.buffer.append(s.format(t_end, namespace=self.object.namespace, data=self.object.data, json=self.object.source))
+
+    def __processSchemaPreamble(self):
+        self.schema['definitions'] = copy.deepcopy(CORE_TYPE_JSON_DEFINITIONS)
+        self.schema['type'] = 'object'
+        self.schema['required'] = list()
+        self.schema['additionalProperties'] = True
+
+    def __processSchemaEnd(self):
+        pass
+
+    def __processSchemaFields(self):
+        self.schema['properties'] = dict()
+
+        for field in self.object.data['fields']:
+            self.schema['properties'][field['name']] = getJSONSchemaElementForCoreType(field['type'], field['size'])
+            if field['default'] is not None:
+                self.schema['properties'][field['name']]['default'] = field['default']
+            else:
+                self.schema['required'].append(field['name'])
+
 
 
 
