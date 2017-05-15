@@ -348,57 +348,62 @@ def load(mw, transport, args):
         print("Device is not in bootload mode")
         return 1
 
-    programSize = bl.getSlavesProgramStorageSize(uid)
-    print(programSize)
-    from intelhex import IntelHex
-
-    ih = IntelHex()
-    ih.loadfile(ihex_file, format="hex")
-    ih.padding = 0xFF
-    bin = ih.tobinarray(size=programSize)
-    crc = stm32_crc32_bytes(0xffffffff, bin)
-    print(hex(crc))
-
     if not bl.select(uid):
         print("Cannot select device")
         return 1
 
-    what = args.what[0]
-    if what == 'program':
-        if not bl.eraseProgram(uid):
-            print("Cannot erase program")
-            return 1
+    desc = bl.describe(uid)
+    if desc is None:
+        retval = 1
+    else:
+        print(formatDescription(uid, desc))
 
-    with open(ihex_file) as f:
-        data = f.read().splitlines()
+        programSize = desc.program
+        from intelhex import IntelHex
 
-    type = MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
-    if not bl.ihex_write(type, ""):
-        print("Cannot write IHEX data")
-        return 1
+        ih = IntelHex()
+        ih.loadfile(ihex_file, format="hex")
+        ih.padding = 0xFF
+        bin = ih.tobinarray(size=programSize)
+        crc = stm32_crc32_bytes(0xffffffff, bin)
+        print(hex(crc))
 
-    l = 0
-    for line in data:
-        type = MW.BootMsg.IHEX.IHexTypeEnum.DATA
-        print("%d of %d" % (l, len(data)))
+        what = args.what[0]
+        if what == 'program':
+            if not bl.eraseProgram(uid):
+                print("Cannot erase program")
+                return 1
 
-        l += 1
+        with open(ihex_file) as f:
+            data = f.read().splitlines()
 
-        print(line)
-
-        if not bl.ihex_write(type, line):
+        type = MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
+        if not bl.ihex_write(type, ""):
             print("Cannot write IHEX data")
             return 1
 
-    type = MW.BootMsg.IHEX.IHexTypeEnum.END
-    if not bl.ihex_write(type, ""):
-        print("Cannot write IHEX data")
-        return 1
+        l = 0
+        for line in data:
+            type = MW.BootMsg.IHEX.IHexTypeEnum.DATA
+            print("%d of %d" % (l, len(data)))
 
-    if what == 'program':
-        if not bl.write_program_crc(uid, crc):
-            print("Cannot write CRC")
+            l += 1
+
+            print(line)
+
+            if not bl.ihex_write(type, line):
+                print("Cannot write IHEX data")
+                return 1
+
+        type = MW.BootMsg.IHEX.IHexTypeEnum.END
+        if not bl.ihex_write(type, ""):
+            print("Cannot write IHEX data")
             return 1
+
+        if what == 'program':
+            if not bl.write_program_crc(uid, crc):
+                print("Cannot write CRC")
+                return 1
 
     bl.deselect(uid)
 
