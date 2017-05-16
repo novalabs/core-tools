@@ -14,6 +14,8 @@ import subprocess
 from novalabs.core.CoreWorkspace import *
 from CoreModule import generate as generateModule
 from CorePackage import generate as generatePackage
+import novalabs.generators as generators
+
 
 # ENVIRONMENT VARIABLES -------------------------------------------------------
 
@@ -128,7 +130,7 @@ def module_completer(prefix, parsed_args, **kwargs):
 
 
 def build_type_completer(prefix, parsed_args, **kwargs):
-    mm = ["debug", "release"]
+    mm = ["debug", "release", "minsizerel"]
     return (m for m in mm if m.startswith(prefix))
 
 
@@ -408,9 +410,11 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
 
         executeCmake = True
 
-        m.generate(target_root, not mustGenerate)
-        if m.generated:
-            fields = [CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(m.destination, workspace.getRoot()), str(mustGenerate)]
+        gen = generators.ModuleTargetGenerator(m)
+
+        gen.generate(target_root, not mustGenerate)
+        if gen.generated:
+            fields = [CoreConsole.highlight(m.name), m.description, m.module, cm.chip, m.os_version, os.path.relpath(gen.destination, workspace.getRoot()), str(mustGenerate)]
             headers = ["Name", "Description", "CoreModule", "Chip", "OS Version", "CMakeLists", "Generated CMakeLists"]
         else:
             executeCmake = False
@@ -422,7 +426,7 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         for buildType in buildTypes:
             headers += ["Build (" + buildType + ")", "CMake (" + buildType + ")"]
 
-            if m.generated:
+            if gen.generated:
                 dest = os.path.join(workspace.getBuildPath(), buildType)
                 if not os.path.isdir(dest):
                     os.mkdir(dest)
@@ -684,7 +688,7 @@ if '__main__' == __name__:
         parser_ls = subparsers.add_parser('ls', help='Lists the Module')
 
         parser_gen = subparsers.add_parser('generate', help='Generates the Workspace sources and CMake files')
-        #        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
+        parser_gen.add_argument("build_type", nargs='?', help="Build type [default = debug]", default=None).completer = build_type_completer
         parser_gen.add_argument("--force", help="Generate even in presence on unmet dependencies [default = False]", action="store_true", default=False)
 
         parser_init = subparsers.add_parser('initialize', help='Initializes a Workspace')
@@ -727,7 +731,10 @@ if '__main__' == __name__:
 
         if args.action == "generate":
             force = args.force
-            buildTypes = ["debug", "release"]
+            if args.build_type is None:
+                buildTypes = ["debug", "release"]
+            else:
+                buildTypes = [args.build_type]
 
             retval = generate(None, None, buildTypes, force, verbose)
 

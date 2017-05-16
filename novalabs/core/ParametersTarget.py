@@ -9,7 +9,7 @@ from intelhex import IntelHex
 import struct
 
 class Parameters:
-    schema = {
+    SCHEMA = {
       "definitions" : {
         "record:Parameters" : {
           "type" : "object",
@@ -67,41 +67,6 @@ class Parameters:
 
         self._requiredPackages = []
 
-    @staticmethod
-    def check(root, name=None):
-        if name is None:
-            return os.path.exists(os.path.join(root, "PARAMETERS.json"))
-        else:
-            return os.path.exists(os.path.join(root, name, "PARAMETERS.json"))
-
-    def openJSON(self, jsonFile: str):
-        CoreConsole.info("PARAMETERS: " + CoreConsole.highlightFilename(jsonFile))
-
-        try:
-            self.data = loadAndValidateJson(jsonFile, Parameters.schema)
-            if self.parametersName == self.data["name"]:
-                self.source = jsonFile
-                self.name = self.data["name"]
-                self.description = self.data["description"]
-                self.objects = self.data["objects"]
-
-                self._requiredPackages = []
-                for obj in self.objects:
-                    self._requiredPackages.append(obj["package"])
-
-                CoreConsole.ok("Parameters:: valid")
-
-                self.valid = True
-
-                return True
-            else:
-                raise CoreError("Parameters filename/name mismatch", jsonFile)
-        except CoreError as e:
-            self.reason = str(e.value)
-            CoreConsole.fail("Parameters::openJSON: " + self.reason)
-
-        return False
-
     def open(self, root, name=None):
         self.__init__()
 
@@ -126,7 +91,7 @@ class Parameters:
 
             filename = os.path.join(self.parametersRoot, "PARAMETERS.json")
 
-            return self.openJSON(filename)
+            return self.__openJSON(filename)
         except CoreError as e:
             self.reason = str(e)
             CoreConsole.fail("ParametersTarget::open " + self.reason)
@@ -136,6 +101,44 @@ class Parameters:
     def requiredPackages(self):
         return self._requiredPackages
 
+    @staticmethod
+    def check(root, name=None):
+        if name is None:
+            return os.path.exists(os.path.join(root, "PARAMETERS.json"))
+        else:
+            return os.path.exists(os.path.join(root, name, "PARAMETERS.json"))
+
+    # ---------------------------------------------------------------------------- #
+    # --- PRIVATE ---------------------------------------------------------------- #
+    # ---------------------------------------------------------------------------- #
+
+    def __openJSON(self, jsonFile: str):
+        CoreConsole.info("PARAMETERS: " + CoreConsole.highlightFilename(jsonFile))
+
+        try:
+            self.data = loadAndValidateJson(jsonFile, Parameters.SCHEMA)
+            if self.parametersName == self.data["name"]:
+                self.source = jsonFile
+                self.name = self.data["name"]
+                self.description = self.data["description"]
+                self.objects = self.data["objects"]
+
+                self._requiredPackages = []
+                for obj in self.objects:
+                    self._requiredPackages.append(obj["package"])
+
+                CoreConsole.ok("Parameters:: valid")
+
+                self.valid = True
+
+                return True
+            else:
+                raise CoreError("Parameters filename/name mismatch", jsonFile)
+        except CoreError as e:
+            self.reason = str(e.value)
+            CoreConsole.fail("Parameters::openJSON: " + self.reason)
+
+        return False
 
     def generateSchema(self, out="", skip=False):
         self.generated = False
@@ -173,6 +176,11 @@ class Parameters:
                         return False
 
                     buffer.extend(bin)
+
+                    #padding
+                    if (size % 4) > 0:
+                        CoreConsole.info(parametersTarget.name + " [" + self.name + "] generateBinary padding %d " % (4 - (size % 4)))
+                        buffer.extend(bytes(4 - (size % 4)))
 
                 CoreConsole.info(parametersTarget.name + " [" + self.name + "] generateBinary: " + repr(buffer))
 

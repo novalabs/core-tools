@@ -715,6 +715,7 @@ class BootMsg(Message):
         MODULE_NAME=0x25,
         READ_MODULE_NAME=0x26,
         WRITE_MODULE_NAME=0x27,
+        WRITE_MODULE_ID=0x28,
 
         IHEX_WRITE=0x50,
         IHEX_READ=0x51,
@@ -788,6 +789,24 @@ class BootMsg(Message):
         def unmarshal(self, data, offset=0):
             self.uid, self.name = struct.unpack_from('<%ds%ds' % (BootMsg.UID.UID_LENGTH, self.NAME_LENGTH), data, offset)
 
+    class UIDAndID(Serializable):
+        PAYLOAD_LENGTH = 12 + 1
+
+        def __init__(self, _BootMsg, uid=None, id=0):
+            super().__init__()
+            self._BootMsg = _BootMsg
+            self.uid = uid
+            self.id = id
+
+        def __repr__(self):
+            return '%s::[uid=%s, id=%0X]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.id)
+
+        def marshal(self):
+            return struct.pack('<%dsB' % BootMsg.UID.UID_LENGTH, self.uid, self.id)
+
+        def unmarshal(self, data, offset=0):
+            self.uid, self.id = struct.unpack_from('<%dsB' % BootMsg.UID.UID_LENGTH, data, offset)
+
     class UIDAndAddress(Serializable):
         PAYLOAD_LENGTH = 12 + 4
 
@@ -812,10 +831,11 @@ class BootMsg(Message):
         MODULE_NAME_LENGTH = 14
         PAYLOAD_LENGTH = UID_LENGTH + MODULE_TYPE_LENGTH + MODULE_NAME_LENGTH + 2 + 2
 
-        def __init__(self, _BootMsg, uid='', userStorageSize=0, programStorageSize=0, moduleType='', moduleName=''):
+        def __init__(self, _BootMsg, uid='', id=0, userStorageSize=0, programStorageSize=0, moduleType='', moduleName=''):
             super(BootMsg.ANNOUNCE, self).__init__()
             self._BootMsg = _BootMsg
             self.uid = uid
+            self.id = id
             self.userStorageSize = userStorageSize
             self.programStorageSize = programStorageSize
             self.moduleType = moduleType
@@ -831,7 +851,7 @@ class BootMsg(Message):
             return tmp
 
         def __repr__(self):
-            return '%s::[uid=%s, module=%s, name=%s, user=%d, program=%d]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.moduleType, self.moduleName, self.userStorageSize, self.programStorageSize)
+            return '%s::[uid=%s, id=%d, module=%s, name=%s, user=%d, program=%d]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.id, self.moduleType, self.moduleName, self.userStorageSize, self.programStorageSize)
 
         def marshal(self):
             return struct.pack('<%dB' % self.PAYLOAD_LENGTH, *self.uid)
@@ -839,10 +859,10 @@ class BootMsg(Message):
         def unmarshal(self, data, offset=0):
             tmp = struct.unpack_from('<%dB' % self.UID_LENGTH, data, offset)
             self.uid = bytes(tmp)
-            self.userStorageSize, tmp = struct.unpack_from('<HH', data, self.UID_LENGTH)
+            self.userStorageSize, tmp, self.id = struct.unpack_from('<HHB', data, self.UID_LENGTH)
             self.programStorageSize = tmp * 32
-            self.moduleType = self.cleanString(struct.unpack_from('<%dB' % self.MODULE_TYPE_LENGTH, data, self.UID_LENGTH + 4))
-            self.moduleName = self.cleanString(struct.unpack_from('<%dB' % self.MODULE_NAME_LENGTH, data, self.UID_LENGTH + 4 + self.MODULE_TYPE_LENGTH))
+            self.moduleType = self.cleanString(struct.unpack_from('<%dB' % self.MODULE_TYPE_LENGTH, data, self.UID_LENGTH + 2+2+1))
+            self.moduleName = self.cleanString(struct.unpack_from('<%dB' % self.MODULE_NAME_LENGTH, data, self.UID_LENGTH + 2+2+1 + self.MODULE_TYPE_LENGTH))
 
     class IHEX(Serializable):
         PAYLOAD_LENGTH = 45
@@ -945,6 +965,7 @@ class BootMsg(Message):
         self.uid = BootMsg.UID(self)
         self.uid_and_crc = BootMsg.UIDAndCRC(self)
         self.uid_and_name = BootMsg.UIDAndName(self)
+        self.uid_and_id = BootMsg.UIDAndID(self)
         self.uid_and_address = BootMsg.UIDAndAddress(self)
         self.ack = BootMsg.Acknowledge(self)
         self.ihex = BootMsg.IHEX(self)
@@ -969,6 +990,9 @@ class BootMsg(Message):
         elif t in (e.WRITE_MODULE_NAME,):
             subtext = repr(self.uid_and_name)
             subtype = type(self.uid_and_name).__name__
+        elif t in (e.WRITE_MODULE_ID,):
+            subtext = repr(self.uid_and_id)
+            subtype = type(self.uid_and_id).__name__
         elif t in (e.IHEX_READ,):
             subtext = repr(self.uid_and_address)
             subtype = type(self.uid_and_address).__name__
@@ -1002,6 +1026,10 @@ class BootMsg(Message):
             data = self.uid_and_name.marshal()
             length = self.uid_and_name.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
+        elif cmd in (e.WRITE_MODULE_ID,):
+            data = self.uid_and_id.marshal()
+            length = self.uid_and_id.PAYLOAD_LENGTH
+            padding = self.MAX_PAYLOAD_LENGTH - length
         elif cmd in (e.IHEX_READ,):
             data = self.uid_and_address.marshal()
             length = self.uid_and_address.PAYLOAD_LENGTH
@@ -1027,6 +1055,8 @@ class BootMsg(Message):
             self.uid_and_crc.unmarshal(payload)
         elif cmd in (e.WRITE_MODULE_NAME,):
             self.uid_and_name.unmarshal(payload)
+        elif cmd in (e.WRITE_MODULE_ID,):
+            self.uid_and_id.unmarshal(payload)
         elif cmd in (e.IHEX_READ,):
             self.uid_and_address.unmarshal(payload)
         elif cmd in (e.IHEX_WRITE,):
@@ -2394,6 +2424,25 @@ class Bootloader(object):
             print()
             return False
 
+    def _uidAndIdCommand(self, cmd, uid, id, seq=None):
+        if seq is None:
+            seq = self._lastSeq + 1
+            if seq == 256:
+                seq = 0
+
+        m = BootMsg(cmd, seq)
+        m.uid_and_id = BootMsg.UIDAndID(m, uid, id)
+
+        #####print(repr(m))
+
+        self._tx(m)
+        # time.sleep(1)
+        if self.waitForAck(m) == BootMsg.Acknowledge.AckEnum.OK:
+            return True
+        else:
+            print()
+            return False
+
     def _uidAndAddressCommand(self, cmd, uid, address, seq=None):
         if seq is None:
             seq = self._lastSeq + 1
@@ -2500,6 +2549,9 @@ class Bootloader(object):
 
     def write_program_crc(self, uid, crc):
         return self._uidAndCrcCommand(BootMsg.TypeEnum.WRITE_PROGRAM_CRC, uid, crc)
+
+    def write_id(self, uid, id):
+        return self._uidAndIdCommand(BootMsg.TypeEnum.WRITE_MODULE_ID, uid, id)
 
     def waitForAck(self, m, timeout=5.0):
         msg = self._rx(timeout)

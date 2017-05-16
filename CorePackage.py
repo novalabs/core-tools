@@ -11,6 +11,7 @@ import argcomplete
 import io
 
 from novalabs.core.CorePackage import *
+import novalabs.generators as generators
 
 def action_completer(prefix, parsed_args, **kwargs):
     mm = ["ls", "generate"]
@@ -165,17 +166,19 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
 
     targetPath = dstPath
 
-    if workspaceMode:
-        package.generate(targetPath, "${WORKSPACE_PACKAGES_PATH}", link=link)
-    else:
-        package.generate(targetPath, link=link)
+    package_gen = generators.CorePackageGenerator(package)
 
-    table = [package.getSummaryGenerate(relPathSrc, relPathDst)]
+    if workspaceMode:
+        package_gen.generate(targetPath, "${WORKSPACE_PACKAGES_PATH}", link=link)
+    else:
+        package_gen.generate(targetPath, link=link)
+
+    table = [package_gen.getSummaryGenerate(relPathSrc, relPathDst)]
 
     CoreConsole.out(CoreConsole.h1("PACKAGE"))
-    CoreConsole.out(CoreConsole.table(table, package.getSummaryFieldsGenerate()))
+    CoreConsole.out(CoreConsole.table(table, generators.CorePackageGenerator.getSummaryFieldsGenerate()))
 
-    if not package.generated:
+    if not package_gen.generated:
         printSuccessOrFailure(False)
         return -1
 
@@ -186,17 +189,18 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     tmp = package.listConfigurationFiles()
     for x in tmp:
         conf = CoreConfiguration()
+        gen = generators.CoreConfigurationGenerator(conf)
         if conf.open(x, package):
-            conf.generate(targetPath)
+            gen.generate(targetPath)
 
-        table.append(conf.getSummaryGenerate(package.packageRoot, package.destination))
+        table.append(gen.getSummaryGenerate(package.packageRoot, package_gen.destination))
 
-        if not conf.generated:
+        if not gen.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("CONFIGURATIONS"))
-        CoreConsole.out(CoreConsole.table(table, CoreConfiguration.getSummaryFieldsGenerate()))
+        CoreConsole.out(CoreConsole.table(table, generators.CoreConfigurationGenerator.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
     # --- Generate messages -------------------------------------------------------
@@ -204,17 +208,19 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     tmp = package.listMessageFiles()
     for x in tmp:
         message = CoreMessage()
+        gen = generators.CoreMessageGenerator(message)
+
         if message.open(x, package):
-            message.generate(targetPath)
+            gen.generate(targetPath)
 
-        table.append(message.getSummaryGenerate(package.packageRoot, package.destination))
+        table.append(gen.getSummaryGenerate(package.packageRoot, package_gen.destination))
 
-        if not message.generated:
+        if not gen.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
-        CoreConsole.out(CoreConsole.table(table, CoreMessage.getSummaryFieldsGenerate()))
+        CoreConsole.out(CoreConsole.table(table, generators.CoreMessageGenerator.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
     # --- Generate nodes ----------------------------------------------------------
@@ -222,17 +228,18 @@ def generate(srcPath, dstPath, workspaceMode, verbose, link=False, relPathSrc=No
     tmp = package.listNodeFiles()
     for x in tmp:
         node = CoreNode()
+        gen = generators.CoreNodeGenerator(node)
         if node.open(x, package):
-            node.generate(targetPath)
+            gen.generate(targetPath)
 
-        table.append(node.getSummaryGenerate(package.packageRoot, package.destination))
+        table.append(gen.getSummaryGenerate(package.packageRoot, package_gen.destination))
 
-        if not node.generated:
+        if not gen.generated:
             isOk = False
     if len(tmp) > 0:
         CoreConsole.out("")
         CoreConsole.out(CoreConsole.h2("MESSAGES"))
-        CoreConsole.out(CoreConsole.table(table, CoreNode.getSummaryFieldsGenerate()))
+        CoreConsole.out(CoreConsole.table(table,  generators.CoreNodeGenerator.getSummaryFieldsGenerate()))
     # -----------------------------------------------------------------------------
 
     # --- Generate documentation --------------------------------------------------
