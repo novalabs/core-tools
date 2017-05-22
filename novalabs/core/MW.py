@@ -36,6 +36,7 @@ _node_regex = re.compile(NODE_NAME_REGEX_FMT)
 _topic_regex = re.compile(TOPIC_NAME_REGEX_FMT)
 
 CORE_BOOTLOADER_TOPIC_NAME = "BOOTLOADER"
+CORE_BOOTLOADER_MASTER_TOPIC_NAME = "BOOTLOADERMSTR"
 
 
 # ==============================================================================
@@ -694,6 +695,122 @@ class MgmtMsg(Message):
             raise ValueError('Unknown management message subtype %d' % t)
         self.type = t
 
+        # ==============================================================================
+
+
+class MasterBootMsg(Message):
+    MAX_PAYLOAD_LENGTH = 6
+
+    TypeEnum = _enum(
+        NONE=0x00,
+        REQUEST=0x01,
+        MASTER_ADVERTISE=0xA0,
+    )
+
+    class ANNOUNCE(Serializable):
+        PAYLOAD_LENGTH = 4
+
+        def __init__(self, _MasterBootMsg, uid=None):
+            super(MasterBootMsg.ANNOUNCE, self).__init__()
+            self._MasterBootMsg = _MasterBootMsg
+            self.uid = uid
+
+        def __repr__(self):
+            return '%s::[uid=%08X]' % (type(self).__name__, self.uid)
+
+        def marshal(self):
+            return struct.pack('<I', self.uid)
+
+        def unmarshal(self, data, offset=0):
+            self.uid, = struct.unpack_from('<I', data, offset)
+
+        @staticmethod
+        def getUIDFromHexString(hex_string):
+            uid = bytes.fromhex(hex_string)
+            if len(uid) != 4:
+                raise RuntimeError("UID must be 4 bytes long")
+            return uid
+
+    class EMPTY(Serializable):
+        PAYLOAD_LENGTH = 0
+
+        def __init__(self, _MasterBootMsg):
+            super(MasterBootMsg.EMPTY, self).__init__()
+            self.MasterBootMsg = _MasterBootMsg
+
+        def __repr__(self):
+            return '%s::[]' % (type(self).__name__)
+
+        def marshal(self):
+            return bytes()
+
+        def unmarshal(self, data, offset=0):
+            pass
+
+    def __init__(self, cmd=TypeEnum.NONE, seq=0xFF):
+        # super().__init__() #DAVIDE
+        self.cmd = int(cmd)
+        self.seq = int(seq)
+
+        self.announce = MasterBootMsg.ANNOUNCE(self)
+        self.empty = MasterBootMsg.EMPTY(self)
+
+    def __repr__(self):
+        t = self.cmd
+        e = MasterBootMsg.TypeEnum
+        if t in (e.REQUEST,):
+            subtext = repr(self.announce)
+            subtype = type(self.announce).__name__
+        elif t in (e.MASTER_ADVERTISE,):
+            subtext = repr(self.empty)
+            subtype = type(self.empty).__name__
+        else:
+            raise ValueError('Unknown master boot message command %d' % self.cmd)
+
+        return '%s::[cmd=%s seq=%d data=%s]' % (type(self).__name__, e._reverse[t], self.seq, subtext)
+
+    def marshal(self):
+        cmd = self.cmd
+        e = MasterBootMsg.TypeEnum
+        if cmd in (e.REQUEST,):
+            data = self.announce.marshal()
+            length = self.announce.PAYLOAD_LENGTH
+            padding = self.MAX_PAYLOAD_LENGTH - length
+        elif cmd in (e.MASTER_ADVERTISE,):
+            data = self.empty.marshal()
+            length = self.empty.PAYLOAD_LENGTH
+            padding = self.MAX_PAYLOAD_LENGTH - length
+        else:
+            raise ValueError('Unknown master boot message command %d' % self.cmd)
+
+        return struct.pack('<BB%ds%ds' % (length, padding), self.cmd, self.seq, data, toBytes(padding * "\0"))
+
+    def unmarshal(self, data, offset=0):
+        self.clean()
+        cmd, seq, payload = struct.unpack_from('<BB%ds' % self.MAX_PAYLOAD_LENGTH, data, offset)
+        e = MasterBootMsg.TypeEnum
+        if cmd in (e.REQUEST,):
+            self.announce.unmarshal(payload)
+        elif cmd in (e.MASTER_ADVERTISE,):
+            self.empty.unmarshal(payload)
+        else:
+            raise ValueError('Unknown master boot message command %d' % cmd)
+
+        self.cmd = cmd
+        self.seq = seq
+
+    def clean(self, type=None):
+        self.__init__()
+        self.type = type  # TODO: Build only the needed type
+
+    @staticmethod
+    def get_type_size():
+        return MasterBootMsg.get_payload_size()
+
+    @staticmethod
+    def get_payload_size():
+        return MasterBootMsg.MAX_PAYLOAD_LENGTH + 2
+
 
 # ==============================================================================
 
@@ -715,7 +832,8 @@ class BootMsg(Message):
         MODULE_NAME=0x25,
         READ_MODULE_NAME=0x26,
         WRITE_MODULE_NAME=0x27,
-        WRITE_MODULE_ID=0x28,
+        WRITE_MODULE_CAN_ID=0x28,
+        DESCRIBE=0x29,
 
         IHEX_WRITE=0x50,
         IHEX_READ=0x51,
@@ -724,12 +842,15 @@ class BootMsg(Message):
         BOOTLOAD=0x70,
         BOOTLOAD_BY_NAME=0x71,
 
+        MASTER_ADVERTISE=0xA0,
+        MASTER_IGNORE=0xA1,
+        MASTER_FORCE=0xA2,
+
         ACK=0xFF
     )
 
     class UID(Serializable):
-        PAYLOAD_LENGTH = 12
-        UID_LENGTH = 12
+        PAYLOAD_LENGTH = 4
 
         def __init__(self, _BootMsg, uid=None):
             super(BootMsg.UID, self).__init__()
@@ -737,23 +858,21 @@ class BootMsg(Message):
             self.uid = uid
 
         def __repr__(self):
-            return '%s::[uid=%s]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid))
+            return '%s::[uid=%08X]' % (type(self).__name__, self.uid)
 
         def marshal(self):
-            return struct.pack('<%ds' % self.UID_LENGTH, self.uid)
+            return struct.pack('<I', self.uid)
 
         def unmarshal(self, data, offset=0):
-            self.uid = struct.unpack_from('<%ds' % self.UID_LENGTH, data, offset)
+            self.uid, = struct.unpack_from('<I', data, offset)
 
         @staticmethod
         def getUIDFromHexString(hex_string):
-            uid = bytes.fromhex(hex_string)
-            if len(uid) != BootMsg.UID.UID_LENGTH:
-                raise RuntimeError("UID must be 12 bytes long")
+            uid = int(hex_string, 16);
             return uid
 
     class UIDAndCRC(Serializable):
-        PAYLOAD_LENGTH = 12 + 4
+        PAYLOAD_LENGTH = 4 + 4
 
         def __init__(self, _BootMsg, uid=None, crc=0):
             super().__init__()
@@ -762,17 +881,17 @@ class BootMsg(Message):
             self.crc = crc
 
         def __repr__(self):
-            return '%s::[uid=%s, crc=%0X]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.crc)
+            return '%s::[uid=%08X, crc=%08X]' % (type(self).__name__, self.uid, self.crc)
 
         def marshal(self):
-            return struct.pack('<%dsI' % BootMsg.UID.UID_LENGTH, self.uid, self.crc)
+            return struct.pack('<II', self.uid, self.crc)
 
         def unmarshal(self, data, offset=0):
-            self.uid, self.crc = struct.unpack_from('<%dsI' % BootMsg.UID.UID_LENGTH, data, offset)
+            self.uid, self.crc = struct.unpack_from('<II', data, offset)
 
     class UIDAndName(Serializable):
         NAME_LENGTH = 16
-        PAYLOAD_LENGTH = 12 + NAME_LENGTH
+        PAYLOAD_LENGTH = 4 + NAME_LENGTH
 
         def __init__(self, _BootMsg, uid=None, name=''):
             super().__init__()
@@ -781,16 +900,16 @@ class BootMsg(Message):
             self.name = name
 
         def __repr__(self):
-            return '%s::[uid=%s, name=%s]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.name)
+            return '%s::[uid=%08X, name=%s]' % (type(self).__name__, self.uid, self.name)
 
         def marshal(self):
-            return struct.pack('<%ds%ds' % (BootMsg.UID.UID_LENGTH, self.NAME_LENGTH), self.uid, bytes(self.name, encoding="ascii"))
+            return struct.pack('<I%ds' % (self.NAME_LENGTH), self.uid, bytes(self.name, encoding="ascii"))
 
         def unmarshal(self, data, offset=0):
-            self.uid, self.name = struct.unpack_from('<%ds%ds' % (BootMsg.UID.UID_LENGTH, self.NAME_LENGTH), data, offset)
+            self.uid, self.name = struct.unpack_from('<I%ds' % (self.NAME_LENGTH), data, offset)
 
     class UIDAndID(Serializable):
-        PAYLOAD_LENGTH = 12 + 1
+        PAYLOAD_LENGTH = 4 + 1
 
         def __init__(self, _BootMsg, uid=None, id=0):
             super().__init__()
@@ -799,16 +918,16 @@ class BootMsg(Message):
             self.id = id
 
         def __repr__(self):
-            return '%s::[uid=%s, id=%0X]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.id)
+            return '%s::[uid=%08X, id=%02X]' % (type(self).__name__, self.uid, self.id)
 
         def marshal(self):
-            return struct.pack('<%dsB' % BootMsg.UID.UID_LENGTH, self.uid, self.id)
+            return struct.pack('<IB', self.uid, self.id)
 
         def unmarshal(self, data, offset=0):
-            self.uid, self.id = struct.unpack_from('<%dsB' % BootMsg.UID.UID_LENGTH, data, offset)
+            self.uid, self.id = struct.unpack_from('<IB', data, offset)
 
     class UIDAndAddress(Serializable):
-        PAYLOAD_LENGTH = 12 + 4
+        PAYLOAD_LENGTH = 4 + 4
 
         def __init__(self, _BootMsg, uid=None, address=0):
             super().__init__()
@@ -817,52 +936,13 @@ class BootMsg(Message):
             self.address = address
 
         def __repr__(self):
-            return '%s::[uid=%s, address=0x%08X]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.address)
+            return '%s::[uid=%08X, address=0x%08X]' % (type(self).__name__, self.uid, self.address)
 
         def marshal(self):
-            return struct.pack('<%dsI' % (BootMsg.UID.UID_LENGTH), self.uid, self.address)
+            return struct.pack('<II', self.uid, self.address)
 
         def unmarshal(self, data, offset=0):
-            self.uid, self.address= struct.unpack_from('<%dsI' % BootMsg.UID.UID_LENGTH, data, offset)
-
-    class ANNOUNCE(Serializable):
-        UID_LENGTH = 12
-        MODULE_TYPE_LENGTH = 12
-        MODULE_NAME_LENGTH = 14
-        PAYLOAD_LENGTH = UID_LENGTH + MODULE_TYPE_LENGTH + MODULE_NAME_LENGTH + 2 + 2
-
-        def __init__(self, _BootMsg, uid='', id=0, userStorageSize=0, programStorageSize=0, moduleType='', moduleName=''):
-            super(BootMsg.ANNOUNCE, self).__init__()
-            self._BootMsg = _BootMsg
-            self.uid = uid
-            self.id = id
-            self.userStorageSize = userStorageSize
-            self.programStorageSize = programStorageSize
-            self.moduleType = moduleType
-            self.moduleName = moduleName
-
-        def cleanString(self, str):  # Maybe there is a better way to achive the same result. IDGAF!
-            tmp = ''
-            for c in str:
-                if c != 0:
-                    tmp += chr(c)
-                else:
-                    return tmp
-            return tmp
-
-        def __repr__(self):
-            return '%s::[uid=%s, id=%d, module=%s, name=%s, user=%d, program=%d]' % (type(self).__name__, ''.join(format(x, '02x') for x in self.uid), self.id, self.moduleType, self.moduleName, self.userStorageSize, self.programStorageSize)
-
-        def marshal(self):
-            return struct.pack('<%dB' % self.PAYLOAD_LENGTH, *self.uid)
-
-        def unmarshal(self, data, offset=0):
-            tmp = struct.unpack_from('<%dB' % self.UID_LENGTH, data, offset)
-            self.uid = bytes(tmp)
-            self.userStorageSize, tmp, self.id = struct.unpack_from('<HHB', data, self.UID_LENGTH)
-            self.programStorageSize = tmp * 32
-            self.moduleType = self.cleanString(struct.unpack_from('<%dB' % self.MODULE_TYPE_LENGTH, data, self.UID_LENGTH + 2+2+1))
-            self.moduleName = self.cleanString(struct.unpack_from('<%dB' % self.MODULE_NAME_LENGTH, data, self.UID_LENGTH + 2+2+1 + self.MODULE_TYPE_LENGTH))
+            self.uid, self.address = struct.unpack_from('<II', data, offset)
 
     class IHEX(Serializable):
         PAYLOAD_LENGTH = 45
@@ -911,6 +991,29 @@ class BootMsg(Message):
         def unmarshal(self, data, offset=0):
             pass
 
+    class DESCRIBE(Serializable):
+        MODULE_TYPE_LENGTH = 12
+        MODULE_NAME_LENGTH = 12
+        PAYLOAD_LENGTH = 4 + 2 + 1 + MODULE_TYPE_LENGTH + MODULE_NAME_LENGTH
+
+        def __init__(self, _Acknowledge, program=0, user=0, can_id=0, module_type=None, module_name=None):
+            super().__init__()
+            self._Acknowledge = _Acknowledge
+            self.program = program
+            self.user = user
+            self.can_id = can_id
+            self.module_type = module_type
+            self.module_name = module_name
+
+        def __repr__(self):
+            return '%s::[program=%d, user=%d, can_id=%02X, type=%s, name=%s]' % (type(self).__name__, self.program, self.user, self.can_id, self.module_type, self.module_name)
+
+        def marshal(self):
+            return struct.pack('<IHB%s%s', self.program, self.user, self.can_id, self.module_type, self.module_name)
+
+        def unmarshal(self, data, offset=0):
+            self.program, self.user, self.can_id, self.module_type, self.module_name = struct.unpack_from('<IHB%ds%ds' % (self.MODULE_TYPE_LENGTH, self.MODULE_NAME_LENGTH), data, offset)
+
     class Acknowledge(Serializable):
         PAYLOAD_LENGTH = 14
 
@@ -925,7 +1028,7 @@ class BootMsg(Message):
             BROKEN=0x07,
             ERROR=0x08,
             IHEX_OK=0x09,
-            DO_NOT_ACK=0x0A
+            DO_NOT_ACK=0x0A,
         )
 
         def __init__(self, _BootMsg, status=AckEnum.NONE, cmd=0x00, uid='', string=''):
@@ -933,32 +1036,40 @@ class BootMsg(Message):
             self._BootMsg = _BootMsg
             self.cmd = cmd
             self.status = status
-            self.uid = uid
+            self.uid = BootMsg.UID(self)
             self.string = string
-
+            self.describe = BootMsg.DESCRIBE(self)
 
         def __repr__(self):
+            t = self.status
             e = BootMsg.TypeEnum
             if self.cmd == e.IHEX_READ:
                 return '%s::[status=%s, cmd=%s, data=%s]' % (type(self).__name__, BootMsg.Acknowledge.AckEnum._reverse[self.status], BootMsg.TypeEnum._reverse[self.cmd], self.string)
+            elif self.cmd == e.DESCRIBE:
+                subtext = repr(self.describe)
+                subtype = type(self.describe).__name__
             else:
-                return '%s::[status=%s, cmd=%s, uid=%s]' % (type(self).__name__, BootMsg.Acknowledge.AckEnum._reverse[self.status], BootMsg.TypeEnum._reverse[self.cmd], ''.join(format(x, '02x') for x in self.uid))
+                subtext = repr(self.uid)
+                subtype = type(self.uid).__name__
+
+            return '%s::[status=%s, cmd=%s, data=%s]' % (type(self).__name__, BootMsg.Acknowledge.AckEnum._reverse[self.status], e._reverse[self.cmd], subtext)
 
         def marshal(self):
-            return struct.pack('<BB%dB' % BootMsg.UID.PAYLOAD_LENGTH, self.status, self.cmd, *self.uid)  # marshal UID as it must be done
+            pass
 
         def unmarshal(self, data, offset=0):
-            self.status, self.cmd, tmp = struct.unpack_from('<BB%ds' % (BootMsg.MAX_PAYLOAD_LENGTH-2), data, offset)
-            print(tmp)
+            self.status, self.cmd, payload = struct.unpack_from('<BB%ds' % (BootMsg.MAX_PAYLOAD_LENGTH - 2), data, offset)
+            # print(payload)
             e = BootMsg.TypeEnum
             if self.cmd == e.IHEX_READ:
-                self.string = struct.unpack_from('<%ds' % (BootMsg.IHEX.PAYLOAD_LENGTH-1), tmp, 0)
+                self.string, = struct.unpack_from('<%ds' % (BootMsg.IHEX.PAYLOAD_LENGTH - 1), payload, 0)
+            elif self.cmd == e.DESCRIBE:
+                self.describe.unmarshal(payload)
             else:
-                self.uid = struct.unpack_from('<%dB' % (BootMsg.UID.PAYLOAD_LENGTH), tmp, 0)
-
+                self.uid.unmarshal(payload)
 
     def __init__(self, cmd=TypeEnum.NONE, seq=0xFF):
-        #super().__init__() #DAVIDE
+        # super().__init__() #DAVIDE
         self.cmd = int(cmd)
         self.seq = int(seq)
 
@@ -969,19 +1080,15 @@ class BootMsg(Message):
         self.uid_and_address = BootMsg.UIDAndAddress(self)
         self.ack = BootMsg.Acknowledge(self)
         self.ihex = BootMsg.IHEX(self)
-        self.announce = BootMsg.ANNOUNCE(self)
         self.empty = BootMsg.EMPTY(self)
 
     def __repr__(self):
         t = self.cmd
         e = BootMsg.TypeEnum
-        if t in (e.REQUEST,):
-            subtext = repr(self.announce)
-            subtype = type(self.announce).__name__
-        elif t in (e.BOOTLOAD,):
+        if t in (e.BOOTLOAD,):
             subtext = repr(self.empty)
             subtype = type(self.empty).__name__
-        elif t in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET,):
+        elif t in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET, e.DESCRIBE,):
             subtext = repr(self.uid)
             subtype = type(self.uid).__name__
         elif t in (e.WRITE_PROGRAM_CRC,):
@@ -990,7 +1097,7 @@ class BootMsg(Message):
         elif t in (e.WRITE_MODULE_NAME,):
             subtext = repr(self.uid_and_name)
             subtype = type(self.uid_and_name).__name__
-        elif t in (e.WRITE_MODULE_ID,):
+        elif t in (e.WRITE_MODULE_CAN_ID,):
             subtext = repr(self.uid_and_id)
             subtype = type(self.uid_and_id).__name__
         elif t in (e.IHEX_READ,):
@@ -1005,12 +1112,12 @@ class BootMsg(Message):
         else:
             raise ValueError('Unknown boot message command %d' % self.cmd)
 
-        return '%s::[cmd=%s seq=%d pl=%s]' % (type(self).__name__, e._reverse[t], self.seq, subtext)
+        return '%s::[cmd=%s, seq=%d, data=%s]' % (type(self).__name__, e._reverse[t], self.seq, subtext)
 
     def marshal(self):
         cmd = self.cmd
         e = BootMsg.TypeEnum
-        if cmd in (e.REQUEST, e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.ACK, e.RESET):
+        if cmd in (e.REQUEST, e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.ACK, e.RESET, e.DESCRIBE,):
             data = self.uid.marshal()
             length = self.uid.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
@@ -1026,7 +1133,7 @@ class BootMsg(Message):
             data = self.uid_and_name.marshal()
             length = self.uid_and_name.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
-        elif cmd in (e.WRITE_MODULE_ID,):
+        elif cmd in (e.WRITE_MODULE_CAN_ID,):
             data = self.uid_and_id.marshal()
             length = self.uid_and_id.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
@@ -1047,15 +1154,13 @@ class BootMsg(Message):
         self.clean()
         cmd, seq, payload = struct.unpack_from('<BB%ds' % self.MAX_PAYLOAD_LENGTH, data, offset)
         e = BootMsg.TypeEnum
-        if cmd in (e.REQUEST,):
-            self.announce.unmarshal(payload)
-        elif cmd in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET):
+        if cmd in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET, e.DESCRIBE):
             self.uid.unmarshal(payload)
         elif cmd in (e.WRITE_PROGRAM_CRC,):
             self.uid_and_crc.unmarshal(payload)
         elif cmd in (e.WRITE_MODULE_NAME,):
             self.uid_and_name.unmarshal(payload)
-        elif cmd in (e.WRITE_MODULE_ID,):
+        elif cmd in (e.WRITE_MODULE_CAN_ID,):
             self.uid_and_id.unmarshal(payload)
         elif cmd in (e.IHEX_READ,):
             self.uid_and_address.unmarshal(payload)
@@ -1517,6 +1622,7 @@ class Middleware(object):
         self.mgmt_sub = Subscriber(5, self.mgmt_cb)  # TODO: configure length
 
         self.boot_topic = Topic(CORE_BOOTLOADER_TOPIC_NAME, BootMsg)
+        self.boot_master_topic = Topic(CORE_BOOTLOADER_MASTER_TOPIC_NAME, MasterBootMsg)
 
         self.stopped = False
         self.num_running_nodes = 0
@@ -1530,6 +1636,7 @@ class Middleware(object):
         logging.info('Initializing middleware %s' % repr(self.module_name))
 
         self.add_topic(self.boot_topic)
+        self.add_topic(self.boot_master_topic)
         self.add_topic(self.mgmt_topic)
 
         self.mgmt_thread = threading.Thread(name='R2P_MGMT', target=self.mgmt_threadf)
@@ -1872,7 +1979,7 @@ class StdLineIO(LineIO):
 
 class TCPLineIO(LineIO):
     def __init__(self, address_string, port):
-        #super().__init__() #DAVIDE
+        # super().__init__() #DAVIDE
         self._socket = None
         self._fp = None
         self._address = address_string
@@ -2020,6 +2127,8 @@ class DebugTransport(Transport):
         self._mgmt_rsub = DebugSubscriber(self, self.MGMT_BUFFER_LENGTH)
         self._boot_rpub = DebugPublisher(self)
         self._boot_rsub = DebugSubscriber(self, self.BOOT_BUFFER_LENGTH)
+        self._boot_master_rpub = DebugPublisher(self)
+        self._boot_master_rsub = DebugSubscriber(self, self.BOOT_BUFFER_LENGTH)
         self._sub_queue = EventQueue()
         self._running = False
         self._running_lock = threading.Lock()
@@ -2042,6 +2151,8 @@ class DebugTransport(Transport):
                 self._tx_thread.start()
                 self.advertise(self._mgmt_rpub, 'R2P', Time.ms(200), MgmtMsg)  # TODO: configure
                 self.subscribe(self._mgmt_rsub, 'R2P', MgmtMsg)  # TODO: configure
+                self.advertise(self._boot_master_rpub, CORE_BOOTLOADER_MASTER_TOPIC_NAME, Time.ms(200), MasterBootMsg)  # TODO: configure
+                self.subscribe(self._boot_master_rsub, CORE_BOOTLOADER_MASTER_TOPIC_NAME, MasterBootMsg)  # TODO: configure
                 self.advertise(self._boot_rpub, CORE_BOOTLOADER_TOPIC_NAME, Time.ms(200), BootMsg)  # TODO: configure
                 self.subscribe(self._boot_rsub, CORE_BOOTLOADER_TOPIC_NAME, BootMsg)  # TODO: configure
                 logging.info('%s open' % repr(self))
@@ -2082,7 +2193,10 @@ class DebugTransport(Transport):
                 cs.compute_checksum())
         line = '@%.8X:%.2X%s:%.2X%s:%0.2X' % args
         if topic_name == CORE_BOOTLOADER_TOPIC_NAME:
-            ####print("<<< " + line) # DAVIDE
+            #### print("<<< " + line) # DAVIDE
+            pass
+        if topic_name == CORE_BOOTLOADER_MASTER_TOPIC_NAME:
+            #### print("<<< " + line)  # DAVIDE
             pass
         self._lineio.writeline(line)
 
@@ -2246,24 +2360,26 @@ class Bootloader(object):
         self._rx_queue = queue.Queue()
         self._tx_queue = queue.Queue()
 
+        self._subShort = None
         self._sub = None
         self._pub = None
 
-    def _callback(self, msg):
-        # logging.debug('BOOTLOADER >>> %s' % repr(self))
-        print(repr(msg))
+    def _callbackShort(self, msg):
+        #logging.debug('BOOTLOADER >>> %s' % repr(self))
+        #### print(repr(msg)) ####
 
-        if msg.cmd == BootMsg.TypeEnum.REQUEST:
+
+        if msg.cmd == MasterBootMsg.TypeEnum.REQUEST:
             if msg.announce.uid in self._slaves:
                 self._slaves[msg.announce.uid] += 1
             else:
                 self._slaves[msg.announce.uid] = 1
-                self._slavesTypes[msg.announce.uid] = msg.announce.moduleType
-                self._slavesNames[msg.announce.uid] = msg.announce.moduleName
-                self._slavesUserStorageSize[msg.announce.uid] = msg.announce.userStorageSize
-                self._slavesProgramStorageSize[msg.announce.uid] = msg.announce.programStorageSize
 
             return
+
+    def _callback(self, msg):
+        # logging.debug('BOOTLOADER >>> %s' % repr(self))
+        #### print(repr(msg)) ####
 
         if msg.cmd == BootMsg.TypeEnum.ACK:
             self._rx_queue.put_nowait(msg)
@@ -2286,6 +2402,7 @@ class Bootloader(object):
         node = Node('bl_node')
         node.begin()
 
+        node.subscribe(self._subShort, CORE_BOOTLOADER_MASTER_TOPIC_NAME, MasterBootMsg)
         node.subscribe(self._sub, CORE_BOOTLOADER_TOPIC_NAME, BootMsg)
         node.advertise(self._pub, CORE_BOOTLOADER_TOPIC_NAME, Time(Time.RAW_MAX), BootMsg)
 
@@ -2308,6 +2425,8 @@ class Bootloader(object):
 
     def start(self):
         if self._runner is None:
+            if self._subShort is None:
+                self._subShort = LocalSubscriber(10, self._callbackShort)
             if self._sub is None:
                 self._sub = LocalSubscriber(10, self._callback)
             if self._pub is None:
@@ -2338,6 +2457,15 @@ class Bootloader(object):
             return self._slavesProgramStorageSize[uid]
 
         return None
+
+    def _emptyShortCommandNoAck(self, cmd):
+        m = MasterBootMsg(cmd, 0)
+        m.uid = MasterBootMsg.EMPTY(m)
+
+        #####print(repr(m))
+
+        self._tx(m)
+        return True
 
     def _emptyCommand(self, cmd, seq=None):
         if seq is None:
@@ -2489,7 +2617,7 @@ class Bootloader(object):
         ###     return False
 
         ### return True
-        if self.waitForAck(m, 5) == BootMsg.Acknowledge.AckEnum.OK: # DIOBONO
+        if self.waitForAck(m, 15) == BootMsg.Acknowledge.AckEnum.OK:  # DIOBONO
             return True
         else:
             return False
@@ -2508,6 +2636,26 @@ class Bootloader(object):
         self._tx(m)
 
         return self.waitForStringAck(m)
+
+    def _describeCommand(self, cmd, uid, seq=None):
+        if seq is None:
+            seq = self._lastSeq + 1
+            if seq == 256:
+                seq = 0
+
+        m = BootMsg(cmd, seq)
+        m.uid = BootMsg.UID(m, uid)
+
+        #####print(repr(m))
+
+        self._tx(m)
+
+        status, description = self.waitForDescribeAck(m)
+
+        if status == BootMsg.Acknowledge.AckEnum.OK:
+            return description
+        else:
+            return None
 
     def bootload(self):
         return self._emptyCommandNoAck(BootMsg.TypeEnum.BOOTLOAD)
@@ -2541,8 +2689,7 @@ class Bootloader(object):
         while status == BootMsg.Acknowledge.AckEnum.IHEX_OK:
             status = self._ihexReadCommand(BootMsg.TypeEnum.IHEX_READ, uid, 0xFFFFFFFF)
 
-        return status ==  BootMsg.Acknowledge.AckEnum.OK
-
+        return status == BootMsg.Acknowledge.AckEnum.OK
 
     def write_name(self, uid, name):
         return self._uidAndNameCommand(BootMsg.TypeEnum.WRITE_MODULE_NAME, uid, name)
@@ -2551,7 +2698,10 @@ class Bootloader(object):
         return self._uidAndCrcCommand(BootMsg.TypeEnum.WRITE_PROGRAM_CRC, uid, crc)
 
     def write_id(self, uid, id):
-        return self._uidAndIdCommand(BootMsg.TypeEnum.WRITE_MODULE_ID, uid, id)
+        return self._uidAndIdCommand(BootMsg.TypeEnum.WRITE_MODULE_CAN_ID, uid, id)
+
+    def describe(self, uid):
+        return self._describeCommand(BootMsg.TypeEnum.DESCRIBE, uid)
 
     def waitForAck(self, m, timeout=5.0):
         msg = self._rx(timeout)
@@ -2575,6 +2725,19 @@ class Bootloader(object):
                     if self._lastSeq == 256:
                         self._lastSeq = 0
                     return msg.ack.status
+            msg = self._rx(timeout)
+
+        return None
+
+    def waitForDescribeAck(self, m, timeout=5.0):
+        msg = self._rx(timeout)
+        while msg is not None:
+            if msg.seq == m.seq + 1:
+                if msg.ack.cmd == m.cmd:
+                    self._lastSeq = m.seq + 1
+                    if self._lastSeq == 256:
+                        self._lastSeq = 0
+                    return msg.ack.status, msg.ack.describe
             msg = self._rx(timeout)
 
         return None
