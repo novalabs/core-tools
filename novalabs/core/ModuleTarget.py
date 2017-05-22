@@ -100,7 +100,7 @@ class ModuleTarget:
         "$ref": "#/definitions/record:ModuleTarget"
     }
 
-    DEFAULT_OS_VERSION = "CHIBIOS_3"
+    DEFAULT_OS_VERSION = "CHIBIOS_16"
 
     def __init__(self):
         self.workspace = None
