@@ -832,7 +832,7 @@ class BootMsg(Message):
         MODULE_NAME=0x25,
         READ_MODULE_NAME=0x26,
         WRITE_MODULE_NAME=0x27,
-        WRITE_MODULE_ID=0x28,
+        WRITE_MODULE_CAN_ID=0x28,
         DESCRIBE=0x29,
 
         IHEX_WRITE=0x50,
@@ -841,6 +841,10 @@ class BootMsg(Message):
         RESET=0x60,
         BOOTLOAD=0x70,
         BOOTLOAD_BY_NAME=0x71,
+
+        MASTER_ADVERTISE=0xA0,
+        MASTER_IGNORE=0xA1,
+        MASTER_FORCE=0xA2,
 
         ACK=0xFF
     )
@@ -1024,7 +1028,7 @@ class BootMsg(Message):
             BROKEN=0x07,
             ERROR=0x08,
             IHEX_OK=0x09,
-            DO_NOT_ACK=0x0A
+            DO_NOT_ACK=0x0A,
         )
 
         def __init__(self, _BootMsg, status=AckEnum.NONE, cmd=0x00, uid='', string=''):
@@ -1048,7 +1052,7 @@ class BootMsg(Message):
                 subtext = repr(self.uid)
                 subtype = type(self.uid).__name__
 
-            return '%s::[status=%s, cmd=%s, data=%s]' % (type(self).__name__, BootMsg.Acknowledge.AckEnum._reverse[self.status], e._reverse[t], subtext)
+            return '%s::[status=%s, cmd=%s, data=%s]' % (type(self).__name__, BootMsg.Acknowledge.AckEnum._reverse[self.status], e._reverse[self.cmd], subtext)
 
         def marshal(self):
             pass
@@ -1058,7 +1062,7 @@ class BootMsg(Message):
             # print(payload)
             e = BootMsg.TypeEnum
             if self.cmd == e.IHEX_READ:
-                self.string, = struct.unpack_from('<%ds' % (BootMsg.IHEX.PAYLOAD_LENGTH - 1), tmp, 0)
+                self.string, = struct.unpack_from('<%ds' % (BootMsg.IHEX.PAYLOAD_LENGTH - 1), payload, 0)
             elif self.cmd == e.DESCRIBE:
                 self.describe.unmarshal(payload)
             else:
@@ -1093,7 +1097,7 @@ class BootMsg(Message):
         elif t in (e.WRITE_MODULE_NAME,):
             subtext = repr(self.uid_and_name)
             subtype = type(self.uid_and_name).__name__
-        elif t in (e.WRITE_MODULE_ID,):
+        elif t in (e.WRITE_MODULE_CAN_ID,):
             subtext = repr(self.uid_and_id)
             subtype = type(self.uid_and_id).__name__
         elif t in (e.IHEX_READ,):
@@ -1129,7 +1133,7 @@ class BootMsg(Message):
             data = self.uid_and_name.marshal()
             length = self.uid_and_name.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
-        elif cmd in (e.WRITE_MODULE_ID,):
+        elif cmd in (e.WRITE_MODULE_CAN_ID,):
             data = self.uid_and_id.marshal()
             length = self.uid_and_id.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
@@ -1156,7 +1160,7 @@ class BootMsg(Message):
             self.uid_and_crc.unmarshal(payload)
         elif cmd in (e.WRITE_MODULE_NAME,):
             self.uid_and_name.unmarshal(payload)
-        elif cmd in (e.WRITE_MODULE_ID,):
+        elif cmd in (e.WRITE_MODULE_CAN_ID,):
             self.uid_and_id.unmarshal(payload)
         elif cmd in (e.IHEX_READ,):
             self.uid_and_address.unmarshal(payload)
@@ -2189,10 +2193,10 @@ class DebugTransport(Transport):
                 cs.compute_checksum())
         line = '@%.8X:%.2X%s:%.2X%s:%0.2X' % args
         if topic_name == CORE_BOOTLOADER_TOPIC_NAME:
-            # print("<<< " + line) # DAVIDE
+            #### print("<<< " + line) # DAVIDE
             pass
         if topic_name == CORE_BOOTLOADER_MASTER_TOPIC_NAME:
-            print("<<< " + line)  # DAVIDE
+            #### print("<<< " + line)  # DAVIDE
             pass
         self._lineio.writeline(line)
 
@@ -2361,7 +2365,7 @@ class Bootloader(object):
         self._pub = None
 
     def _callbackShort(self, msg):
-        logging.debug('BOOTLOADER >>> %s' % repr(self))
+        #logging.debug('BOOTLOADER >>> %s' % repr(self))
         #### print(repr(msg)) ####
 
 
@@ -2613,7 +2617,7 @@ class Bootloader(object):
         ###     return False
 
         ### return True
-        if self.waitForAck(m, 5) == BootMsg.Acknowledge.AckEnum.OK:  # DIOBONO
+        if self.waitForAck(m, 15) == BootMsg.Acknowledge.AckEnum.OK:  # DIOBONO
             return True
         else:
             return False
@@ -2694,7 +2698,7 @@ class Bootloader(object):
         return self._uidAndCrcCommand(BootMsg.TypeEnum.WRITE_PROGRAM_CRC, uid, crc)
 
     def write_id(self, uid, id):
-        return self._uidAndIdCommand(BootMsg.TypeEnum.WRITE_MODULE_ID, uid, id)
+        return self._uidAndIdCommand(BootMsg.TypeEnum.WRITE_MODULE_CAN_ID, uid, id)
 
     def describe(self, uid):
         return self._describeCommand(BootMsg.TypeEnum.DESCRIBE, uid)
