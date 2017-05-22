@@ -643,6 +643,7 @@ def target_add(module_name, name):
             return -1
 
     target_root = os.path.join(workspace.getModuleTargetsRoot(), name)
+    default_params_root = os.path.join(workspace.getParametersTargetsRoot(), name)
 
     if os.path.isdir(target_root):
         shutil.rmtree(target_root)
@@ -673,6 +674,29 @@ def target_add(module_name, name):
     sink = open(os.path.join(target_root, "MODULE_TARGET.json"), 'w')
     sink.write(json)
     sink.close()
+
+    if os.path.isfile(os.path.join(target_root, "PARAMETERS.json")):
+        src = open(os.path.join(target_root, "PARAMETERS.json"))
+        json = src.read()
+        src.close()
+        json = json.replace("@@NAME@@", name)
+        sink = open(os.path.join(target_root, "PARAMETERS.json"), 'w')
+        sink.write(json)
+        sink.close()
+
+        default_params_file = os.path.join(module.moduleRoot, "target_template", "PARAMETERS.default.json")
+
+        if os.path.isfile(default_params_file):
+            src = open(default_params_file)
+            json = src.read()
+            src.close()
+            json = json.replace("@@NAME@@", name)
+
+            if not os.path.isdir(default_params_root):
+                mkdir(default_params_root)
+            sink = open(os.path.join(default_params_root, "default.json"), 'w+')
+            sink.write(json)
+            sink.close()
 
     CoreConsole.out("")
     printSuccessOrFailure(True)
