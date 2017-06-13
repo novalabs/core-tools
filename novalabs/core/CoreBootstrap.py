@@ -204,15 +204,20 @@ class CoreBootstrap:
                 else:
                     origin = repo.remotes.origin
                     origin.fetch()
-                    repo.heads[branch].checkout()
-                    origin.pull(branch)
+                    if repo.refs[branch]:
+                        repo.git.checkout(repo.refs[branch])
+                    elif repo.tags[branch]:
+                        repo.git.checkout(repo.tags[branch])
                     return 'updated'
             else:
                 os.makedirs(dst)
                 repo = git.Repo.init(dst)
                 origin = repo.create_remote('origin', url)
                 origin.fetch()
-                repo.git.checkout('origin/' + branch, b=branch)
+                if repo.refs[branch]:
+                    repo.git.checkout(repo.refs[branch])
+                elif repo.tags[branch]:
+                    repo.git.checkout(repo.tags[branch])
                 return 'fetched'
         except Exception as e:
             self.reason = str(e)
