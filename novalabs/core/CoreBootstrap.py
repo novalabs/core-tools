@@ -198,26 +198,17 @@ class CoreBootstrap:
 
             if os.path.exists(dst):
                 repo = git.Repo(dst)
-                repo
                 if repo.is_dirty(untracked_files=True):
                     return 'dirty'
                 else:
                     origin = repo.remotes.origin
-                    origin.fetch()
-                    if repo.refs[branch]:
-                        repo.git.checkout(repo.refs[branch])
-                    elif repo.tags[branch]:
-                        repo.git.checkout(repo.tags[branch])
+                    origin.pull(branch)
                     return 'updated'
             else:
                 os.makedirs(dst)
                 repo = git.Repo.init(dst)
                 origin = repo.create_remote('origin', url)
-                origin.fetch()
-                if repo.refs[branch]:
-                    repo.git.checkout(repo.refs[branch])
-                elif repo.tags[branch]:
-                    repo.git.checkout(repo.tags[branch])
+                origin.pull(branch)
                 return 'fetched'
         except Exception as e:
             self.reason = str(e)
@@ -356,7 +347,7 @@ def fetch(corePath):
 
         failure = False
 
-        if bootstrapper.getCore() is not None:
+        if False and bootstrapper.getCore() is not None:
             CoreConsole.out("Fetching CORE")
             for tmp in bootstrapper.getCore():
                 printElement(tmp)
@@ -372,7 +363,7 @@ def fetch(corePath):
                     failure = True
             CoreConsole.out("")
 
-        if bootstrapper.getModules() is not None:
+        if False and bootstrapper.getModules() is not None:
             CoreConsole.out("Fetching MODULES")
             for tmp in bootstrapper.getModules():
                 printElement(tmp)
@@ -388,7 +379,7 @@ def fetch(corePath):
                     failure = True
             CoreConsole.out("")
 
-        if bootstrapper.getPackages() is not None:
+        if False and bootstrapper.getPackages() is not None:
             CoreConsole.out("Fetching PACKAGES")
             for tmp in bootstrapper.getPackages():
                 printElement(tmp)
