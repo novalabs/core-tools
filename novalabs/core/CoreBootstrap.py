@@ -347,7 +347,7 @@ def fetch(corePath):
 
         failure = False
 
-        if False and bootstrapper.getCore() is not None:
+        if bootstrapper.getCore() is not None:
             CoreConsole.out("Fetching CORE")
             for tmp in bootstrapper.getCore():
                 printElement(tmp)
@@ -363,7 +363,7 @@ def fetch(corePath):
                     failure = True
             CoreConsole.out("")
 
-        if False and bootstrapper.getModules() is not None:
+        if bootstrapper.getModules() is not None:
             CoreConsole.out("Fetching MODULES")
             for tmp in bootstrapper.getModules():
                 printElement(tmp)
@@ -379,7 +379,7 @@ def fetch(corePath):
                     failure = True
             CoreConsole.out("")
 
-        if False and bootstrapper.getPackages() is not None:
+        if bootstrapper.getPackages() is not None:
             CoreConsole.out("Fetching PACKAGES")
             for tmp in bootstrapper.getPackages():
                 printElement(tmp)
