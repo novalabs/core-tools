@@ -890,7 +890,7 @@ class BootMsg(Message):
             self.uid, self.crc = struct.unpack_from('<II', data, offset)
 
     class UIDAndName(Serializable):
-        NAME_LENGTH = 16
+        NAME_LENGTH = 14
         PAYLOAD_LENGTH = 4 + NAME_LENGTH
 
         def __init__(self, _BootMsg, uid=None, name=''):
@@ -993,7 +993,7 @@ class BootMsg(Message):
 
     class DESCRIBE(Serializable):
         MODULE_TYPE_LENGTH = 12
-        MODULE_NAME_LENGTH = 12
+        MODULE_NAME_LENGTH = 14
         PAYLOAD_LENGTH = 4 + 2 + 1 + MODULE_TYPE_LENGTH + MODULE_NAME_LENGTH
 
         def __init__(self, _Acknowledge, program=0, user=0, can_id=0, module_type=None, module_name=None):
