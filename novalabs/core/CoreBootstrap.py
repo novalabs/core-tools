@@ -198,21 +198,17 @@ class CoreBootstrap:
 
             if os.path.exists(dst):
                 repo = git.Repo(dst)
-                repo
                 if repo.is_dirty(untracked_files=True):
                     return 'dirty'
                 else:
                     origin = repo.remotes.origin
-                    origin.fetch()
-                    repo.heads[branch].checkout()
                     origin.pull(branch)
                     return 'updated'
             else:
                 os.makedirs(dst)
                 repo = git.Repo.init(dst)
                 origin = repo.create_remote('origin', url)
-                origin.fetch()
-                repo.git.checkout('origin/' + branch, b=branch)
+                origin.pull(branch)
                 return 'fetched'
         except Exception as e:
             self.reason = str(e)
