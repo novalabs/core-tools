@@ -9,11 +9,13 @@ import time
 
 import serial
 
+import sys, traceback
+
 from novalabs.misc.helpers import *
 
 # from elftools.elf.sections import SymbolTableSection
 
-MODULE_NAME_MAX_LENGTH = 7
+MODULE_NAME_MAX_LENGTH = 16
 NODE_NAME_MAX_LENGTH = 8
 TOPIC_NAME_MAX_LENGTH = 16
 IHEX_MAX_DATA_LENGTH = 16
@@ -622,11 +624,11 @@ class MgmtMsg(Message):
             return '%s(MgmtMsg, name=%s, flags=%s)' % (type(self).__name__, repr(self.name), repr(self.flags))
 
         def marshal(self):
-            return struct.pack('<%ds' % MODULE_NAME_MAX_LENGTH, self.name) + self.flags.marshal()
+            return struct.pack('<%ds' % MODULE_NAME_MAX_LENGTH, bytes(self.name, encoding="ascii")) + self.flags.marshal()
 
         def unmarshal(self, data, offset=0):
             name, intflags = struct.unpack_from('<%dsB' % MODULE_NAME_MAX_LENGTH, data, offset)
-            self.name = name.rstrip('\0')
+            self.name = name
             self.flags.__init__(intval=intflags)
 
     def __init__(self, type=None):
@@ -890,12 +892,16 @@ class BootMsg(Message):
             self.uid, self.crc = struct.unpack_from('<II', data, offset)
 
     class UIDAndName(Serializable):
-        NAME_LENGTH = 14
+        NAME_LENGTH = 16
         PAYLOAD_LENGTH = 4 + NAME_LENGTH
 
         def __init__(self, _BootMsg, uid=None, name=''):
             super().__init__()
             self._BootMsg = _BootMsg
+
+            if(len(name) > self.NAME_LENGTH):
+                raise Exception()
+
             self.uid = uid
             self.name = name
 
@@ -914,6 +920,10 @@ class BootMsg(Message):
         def __init__(self, _BootMsg, uid=None, id=0):
             super().__init__()
             self._BootMsg = _BootMsg
+
+            if(id > 255):
+                raise Exception()
+
             self.uid = uid
             self.id = id
 
@@ -993,7 +1003,7 @@ class BootMsg(Message):
 
     class DESCRIBE(Serializable):
         MODULE_TYPE_LENGTH = 12
-        MODULE_NAME_LENGTH = 14
+        MODULE_NAME_LENGTH = 16
         PAYLOAD_LENGTH = 4 + 2 + 1 + MODULE_TYPE_LENGTH + MODULE_NAME_LENGTH
 
         def __init__(self, _Acknowledge, program=0, user=0, can_id=0, module_type=None, module_name=None):
@@ -2276,7 +2286,8 @@ class DebugTransport(Transport):
                     msg = rpub.alloc()
                     msg.unmarshal(payload)
                     msg._source = self
-                    logging.debug('--->>> %s' % repr(msg))
+                    x = repr(msg)
+                    logging.debug('--->>> %s' % x)
                     rpub.publish_locally(msg)
 
                 except queue.Full:
