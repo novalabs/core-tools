@@ -12,6 +12,14 @@ from novalabs.misc.crc import *
 from time import sleep
 
 
+def progressBar(value, endvalue, bar_length=20):
+    percent = float(value) / endvalue
+    arrow = '=' * int(round(percent * bar_length) - 0)
+    spaces = ' ' * (bar_length - len(arrow))
+
+    sys.stdout.write("\rProgress: [{0}] {1}%".format(arrow + spaces, int(round(percent * 100))))
+    sys.stdout.flush()
+
 # ==============================================================================
 
 def load_completer(prefix, parsed_args, **kwargs):
@@ -45,8 +53,8 @@ def _create_argsparser():
 
     tgroup = parser.add_argument_group('transport setup')
     tgroup.add_argument(
-        '-p', '--transport', required=False, nargs='+',
-        default=['DebugTransport', 'SerialLineIO', '/dev/ttyUSB0', 921600],  # 921600
+        '-p', '--transport', required=False, nargs=4,
+        default=['DebugTransport', 'SerialLineIO', '/dev/ttyACM0', 921600],  # 921600
         help='transport parameters',
         dest='transport', metavar='PARAMS'
     )
@@ -74,24 +82,30 @@ def _create_argsparser():
 
     parser_reset = subparsers.add_parser('load', help='Load a FW')
     parser_reset.add_argument('what', nargs=1, help="[program|configuration]", default='program').completer = load_completer
-    parser_reset.add_argument('uid', nargs=1, help="UID", default=None)
     parser_reset.add_argument('file', nargs=1, help="FILE", default=None)
+    parser_reset.add_argument('uid', nargs=1, help="UID", default=None)
 
     parser_erase_config = subparsers.add_parser('erase', help='Erases something')
     parser_erase_config.add_argument('what', nargs=1, help="[program|configuration|all]", default='program').completer = erase_completer
     parser_erase_config.add_argument('uid', nargs=1, help="UID", default=None)
 
     parser_write_name = subparsers.add_parser('name', help='Write the module name')
-    parser_write_name.add_argument('uid', nargs=1, help="UID", default=None)
     parser_write_name.add_argument('name', nargs=1, help="NAME", default=None)
-
-    parser_write_name = subparsers.add_parser('id', help='Write the module name')
     parser_write_name.add_argument('uid', nargs=1, help="UID", default=None)
-    parser_write_name.add_argument('id', nargs=1, help="ID", default=None)
 
-    parser_read = subparsers.add_parser('read', help='Write the module name')
-    parser_read.add_argument('uid', nargs=1, help="UID", default=None)
+    parser_write_name = subparsers.add_parser('id', help='Write the module id')
+    parser_write_name.add_argument('id', nargs=1, help="ID", default=None)
+    parser_write_name.add_argument('uid', nargs=1, help="UID", default=None)
+
+    parser_read = subparsers.add_parser('read', help='Read module flash')
     parser_read.add_argument('address', nargs=1, help="ADDRESS", default=None)
+    parser_read.add_argument('uid', nargs=1, help="UID", default=None)
+
+    parser_bootload = subparsers.add_parser('bootload', help='Reboot (in bootload mode) a module')
+    parser_bootload.add_argument('name', nargs=1, help="NAME", default=None)
+
+    parser_reboot = subparsers.add_parser('reboot', help='Reboot a module')
+    parser_reboot.add_argument('name', nargs=1, help="NAME", default=None)
 
     return parser
 
@@ -356,7 +370,7 @@ def load(mw, transport, args):
     if desc is None:
         retval = 1
     else:
-        print(formatDescription(uid, desc))
+        print("TARGET:" + formatDescription(uid, desc))
 
         programSize = desc.program
         from intelhex import IntelHex
@@ -366,7 +380,7 @@ def load(mw, transport, args):
         ih.padding = 0xFF
         bin = ih.tobinarray(size=programSize)
         crc = stm32_crc32_bytes(0xffffffff, bin)
-        print(hex(crc))
+        print("CRC: " + hex(crc))
 
         what = args.what[0]
         if what == 'program':
@@ -385,15 +399,18 @@ def load(mw, transport, args):
         l = 0
         for line in data:
             type = MW.BootMsg.IHEX.IHexTypeEnum.DATA
-            print("%d of %d" % (l, len(data)))
+            progressBar(l, len(data))
+#            print("%d of %d" % (l, len(data)))
 
             l += 1
 
-            print(line)
+ #           print(line)
 
             if not bl.ihex_write(type, line):
                 print("Cannot write IHEX data")
                 return 1
+
+        print("")
 
         type = MW.BootMsg.IHEX.IHexTypeEnum.END
         if not bl.ihex_write(type, ""):
@@ -416,8 +433,8 @@ def name(mw, transport, args):
     uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
     name = args.name[0]
 
-    if len(name) > 16:
-        print("Name must be at most 16 bytes long")
+    if len(name) > MW.BootMsg.UIDAndName.NAME_LENGTH:
+        print("Name must be at most %d bytes long" % (MW.BootMsg.UIDAndName.NAME_LENGTH))
         return 1
 
     bl = MW.Bootloader()
@@ -558,6 +575,12 @@ def _main():
 
     if args.action == 'read':
         retval = read(mw, transport, args)
+
+    if args.action == 'bootload':
+        retval = mw.reboot_remote(args.name[0], True)
+
+    if args.action == 'reboot':
+        retval = mw.reboot_remote(args.name[0], False)
 
     mw.uninitialize()
     transport.close()
