@@ -174,7 +174,7 @@ def identify(mw, transport, args):
 
 def formatDescription(uid, desc):
     if desc is not None:
-        return "%08X, %d, %d, %s, %d, %s" % (uid, desc.program, desc.user, str(desc.module_type, "ascii"), desc.can_id, str(desc.module_name, "ascii"))
+        return "%08X, %d, %d, %s, %d, %s, %08X, %08X" % (uid, desc.program, desc.user, str(desc.module_type, "ascii"), desc.can_id, str(desc.module_name, "ascii"), desc.conf_crc, desc.flash_crc)
     else:
         return None
 
