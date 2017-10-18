@@ -40,7 +40,7 @@ class CoreConfigurationGenerator :
             return False
 
         for field in self.object.data['fields']:
-            if len(field['name']) > 23:
+            if len(field['name']) > 16:
                 self.reason = "Field name " + field['name'] + " is too long"
                 self.generated = False
                 return False
