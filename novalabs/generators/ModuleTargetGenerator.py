@@ -88,9 +88,6 @@ class ModuleTargetGenerator:
         self.buffer.append('# Remove a "#" from the line below to stop generating this file every time you call CoreWorkspace generate')
         self.buffer.append('## TARGET MODULE ' + self.object.module)
         self.buffer.append('')
-        if self.object.type == "bootloader":
-            self.buffer.append('SET(STM32_USE_NANO_SPECS 1)')
-            self.buffer.append('')
         self.buffer.append('PROJECT( ' + self.object.name + ' )')
         self.buffer.append('CMAKE_MINIMUM_REQUIRED( VERSION 2.8 )')
         self.buffer.append('')
@@ -101,6 +98,9 @@ class ModuleTargetGenerator:
         elif self.object.type == "bootloader":
             self.buffer.append('INCLUDE ( CoreBootloaderTarget NO_POLICY_SCOPE )')
         self.buffer.append('')
+        if self.object.type == "bootloader":
+            self.buffer.append('SET( USE_SPECS "nano.specs")')
+            self.buffer.append('')
 
     def __processBootloaderAndConfiguration(self):
         self.buffer.append('SET( BOOTLOADER_SIZE ' + str(self.object.bootloader_size) + ' )')
