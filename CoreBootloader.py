@@ -464,8 +464,8 @@ def moduleid(mw, transport, args):
     uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
     id = int(args.id[0])
 
-    if id > 126:
-        print("ID must be <= 126    ")
+    if id > 255:
+        print("ID must be <= 255    ")
         return 1
 
     bl = MW.Bootloader()
