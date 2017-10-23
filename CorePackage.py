@@ -104,7 +104,6 @@ def ls(srcPath, verbose):
 
 
 def generateDocumentation(name, git_rev, docs,nodes,params,msgs):
-    print(git_rev)
     buffer = list()
 
     buffer.append(":icons: font")
