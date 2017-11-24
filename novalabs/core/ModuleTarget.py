@@ -81,7 +81,12 @@ class ModuleTarget:
                     "configuration_size": {
                         "default": 0,
                         "type": "integer"
+                    },
+                    "tags_size": {
+                        "default": 0,
+                        "type": "integer"
                     }
+
                 }
             },
             "enum:OSVersion": {
@@ -121,6 +126,7 @@ class ModuleTarget:
 
         self.bootloader_size = 0
         self.configuration_size = 0
+        self.tags_size = 0
 
         self.valid = False
         self.reason = ""
@@ -249,6 +255,12 @@ class ModuleTarget:
                     self.configuration_size = self.data["configuration_size"]
                 else:
                     self.configuration_size = 0
+
+                if "tags_size" in self.data:
+                    self.tags_size = self.data["tags_size"]
+                else:
+                    self.tags_size = 0
+
                 CoreConsole.ok("ModuleTarget:: valid")
 
                 self.valid = True

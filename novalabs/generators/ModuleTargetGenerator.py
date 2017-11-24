@@ -105,6 +105,7 @@ class ModuleTargetGenerator:
     def __processBootloaderAndConfiguration(self):
         self.buffer.append('SET( BOOTLOADER_SIZE ' + str(self.object.bootloader_size) + ' )')
         self.buffer.append('SET( CONFIGURATION_SIZE ' + str(self.object.configuration_size) + ' )')
+        self.buffer.append('SET( TAGS_SIZE ' + str(self.object.tags_size) + ' )')
         self.buffer.append('')
 
     def __processIncludes(self):
