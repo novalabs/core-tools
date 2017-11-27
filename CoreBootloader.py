@@ -54,7 +54,7 @@ def _create_argsparser():
     tgroup = parser.add_argument_group('transport setup')
     tgroup.add_argument(
         '-p', '--transport', required=False, nargs=4,
-        default=['DebugTransport', 'SerialLineIO', '/dev/ttyACM0', 921600],  # 921600
+        default=['DebugTransport', 'SerialLineIO', '/dev/ttyACM1', 921600],  # 921600
         help='transport parameters',
         dest='transport', metavar='PARAMS'
     )
@@ -100,6 +100,9 @@ def _create_argsparser():
     parser_read = subparsers.add_parser('read', help='Read module flash')
     parser_read.add_argument('address', nargs=1, help="ADDRESS", default=None)
     parser_read.add_argument('uid', nargs=1, help="UID", default=None)
+
+    parser_read_tags = subparsers.add_parser('tags', help='Read tags')
+    parser_read_tags.add_argument('uid', nargs=1, help="UID", default=None)
 
     parser_bootload = subparsers.add_parser('bootload', help='Reboot (in bootload mode) a module')
     parser_bootload.add_argument('name', nargs=1, help="NAME", default=None)
@@ -172,12 +175,17 @@ def identify(mw, transport, args):
     return retval
 
 
-def formatDescription(uid, desc):
+def formatDescription_V2(uid, desc):
     if desc is not None:
         return "%08X, %d, %d, %s, %d, %s, %08X, %08X" % (uid, desc.program, desc.user, str(desc.module_type, "ascii"), desc.can_id, str(desc.module_name, "ascii"), desc.conf_crc, desc.flash_crc)
     else:
         return None
 
+def formatDescription_V3(uid, desc):
+    if desc is not None:
+        return "%08X, %d, %d, %d, %s, %d, %s, %d, %d" % (uid, desc.program, desc.user, desc.tags, str(desc.module_type, "ascii"), desc.can_id, str(desc.module_name, "ascii"), desc.program_valid, desc.user_valid)
+    else:
+        return None
 
 def describe(mw, transport, args):
     bl = MW.Bootloader()
@@ -193,11 +201,26 @@ def describe(mw, transport, args):
             print("Cannot select device")
             return 1
 
-        desc = bl.describe(uid)
-        if desc is None:
+        try_again = True
+
+        if try_again:
+            desc = bl.describe_v3(uid)
+            if desc is None:
+                try_again = True
+            else:
+                print(formatDescription_V3(uid, desc))
+                try_again = False
+
+        if try_again:
+            desc = bl.describe(uid)
+            if desc is None:
+                try_again = True
+            else:
+                print(formatDescription_V2(uid, desc))
+                try_again = False
+
+        if try_again:
             retval = 1
-        else:
-            print(formatDescription(uid, desc))
 
         if not bl.deselect(uid):
             print("Cannot deselect device")
@@ -214,11 +237,26 @@ def describe(mw, transport, args):
                 print("Cannot select device")
                 return 1
 
-            desc = bl.describe(uid)
-            if desc is None:
+            try_again = True
+
+            if try_again:
+                desc = bl.describe_v3(uid)
+                if desc is None:
+                    try_again = True
+                else:
+                    print(formatDescription_V3(uid, desc))
+                    try_again = False
+
+            if try_again:
+                desc = bl.describe(uid)
+                if desc is None:
+                    try_again = True
+                else:
+                    print(formatDescription_V2(uid, desc))
+                    try_again = False
+
+            if try_again:
                 retval = 1
-            else:
-                print(formatDescription(uid, desc))
 
             if not bl.deselect(uid):
                 print("Cannot deselect device")
@@ -366,12 +404,27 @@ def load(mw, transport, args):
         print("Cannot select device")
         return 1
 
-    desc = bl.describe(uid)
-    if desc is None:
+    try_again = True
+
+    if try_again:
+        desc = bl.describe_v3(uid)
+        if desc is None:
+            try_again = True
+        else:
+            print("TARGET:" + formatDescription_V3(uid, desc))
+            try_again = False
+
+    if try_again:
+        desc = bl.describe(uid)
+        if desc is None:
+            try_again = True
+        else:
+            print("TARGET:" + formatDescription_V2(uid, desc))
+            try_again = False
+
+    if try_again:
         retval = 1
     else:
-        print("TARGET:" + formatDescription(uid, desc))
-
         programSize = desc.program
         from intelhex import IntelHex
 
@@ -423,6 +476,40 @@ def load(mw, transport, args):
                 return 1
 
     bl.deselect(uid)
+
+    bl.stop()
+
+    return retval
+
+
+def read_tags(mw, transport, args):
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 0
+
+    if not bl.select(uid):
+        print("Cannot select device")
+        retval = 1
+
+    tags = bl.tags_read(uid, 0)
+    if tags is None:
+        print("Cannot read tags")
+        retval = 1
+    else:
+        tmp = tags.replace(b'\xff', b'\x00')
+        x = tmp.split(b'\0')
+        for y in x:
+            if len(y) > 0:
+                print(y.decode('ascii'))
+
+
+    if not bl.deselect(uid):
+        print("Cannot deselect device")
+        retval = 1
 
     bl.stop()
 
@@ -581,6 +668,9 @@ def _main():
 
     if args.action == 'reboot':
         retval = mw.reboot_remote(args.name[0], False)
+
+    if args.action == 'tags':
+        retval = read_tags(mw, transport, args)
 
     mw.uninitialize()
     transport.close()
