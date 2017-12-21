@@ -54,7 +54,7 @@ def _create_argsparser():
     tgroup = parser.add_argument_group('transport setup')
     tgroup.add_argument(
         '-p', '--transport', required=False, nargs=4,
-        default=['DebugTransport', 'SerialLineIO', '/dev/ttyACM1', 921600],  # 921600
+        default=['DebugTransport', 'SerialLineIO', '/dev/ttyACM0', 921600],  # 921600
         help='transport parameters',
         dest='transport', metavar='PARAMS'
     )
