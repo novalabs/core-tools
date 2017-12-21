@@ -343,6 +343,8 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         CoreConsole.out(CoreConsole.table(table, ParametersTarget.getSummaryFieldsGenerate()))
 
     table = []
+    targets = []
+
     for m in workspace.validModuleTargets():
         targetSuccess = True
 
@@ -458,6 +460,9 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
                         targetSuccess = False
             else:
                 fields += ["---", "---"]
+
+            if targetSuccess:
+                targets.append(dest)
         try:
             eclipse_template = os.path.join(cm.moduleRoot, "eclipse_template")
             if os.path.isdir(eclipse_template):
@@ -548,6 +553,21 @@ def generate(srcPath, dstPath, buildTypes, force, verbose):
         isOk = False
 
     printSuccessOrFailure(isOk)
+
+    # The following is disabled
+    if False:
+        sink = open(os.path.join(workspace.getBuildPath(), "make.sh"), 'w')
+        sink.write("mkdir deploy\n")
+
+        for t in targets:
+            sink.write("\n")
+            sink.write("echo Building: " + t + "\n")
+            sink.write("cd " + t + "\n")
+            sink.write("make deploy && echo \"FAIL " + t + "\" >> fail.txt\n")
+            sink.write("mv *.bin " + os.path.join(workspace.getBuildPath(), "deploy")  + "\n")
+            sink.write("mv *.hex " + os.path.join(workspace.getBuildPath(), "deploy") + "\n")
+
+        sink.close()
 
     if isOk:
         return 0
@@ -759,6 +779,8 @@ if '__main__' == __name__:
             force = args.force
             if args.build_type is None:
                 buildTypes = ["debug", "release"]
+            elif args.build_type == "all":
+                buildTypes = ["debug", "release", "minsizerel"]
             else:
                 buildTypes = [args.build_type]
 

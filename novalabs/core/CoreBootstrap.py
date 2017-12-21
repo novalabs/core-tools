@@ -432,3 +432,38 @@ def fetch(corePath):
     except CoreError as e:
         CoreConsole.out(CoreConsole.error(e.value))
         return False
+
+def generateSubmodules(corePath):
+    try:
+        bootstrapper = CoreBootstrap(corePath)
+
+        if not bootstrapper.fetchRepos():
+            raise CoreError(bootstrapper.reason)
+
+        bootstrapper.open()
+
+        failure = False
+
+        if bootstrapper.getCore() is not None:
+            for tmp in bootstrapper.getCore():
+                CoreConsole.out("git submodule add -b " + tmp["branch"] + " " + tmp["url"] + " " + tmp["name"])
+
+
+        if bootstrapper.getModules() is not None:
+            for tmp in bootstrapper.getModules():
+                CoreConsole.out("git submodule add -b " + tmp["branch"] + " " + tmp["url"] + " " + os.path.join("modules", tmp["name"]))
+
+        if bootstrapper.getPackages() is not None:
+            for tmp in bootstrapper.getPackages():
+                CoreConsole.out("git submodule add -b " + tmp["branch"] + " " + tmp["url"] + " " + os.path.join("packages", tmp["name"]))
+
+
+        if bootstrapper.getLibs() is not None:
+            for tmp in bootstrapper.getLibs():
+                CoreConsole.out("git submodule add -b " + tmp["branch"] + " " + tmp["url"] + " " + os.path.join("libs", tmp["name"]))
+
+        return True
+
+    except CoreError as e:
+        CoreConsole.out(CoreConsole.error(e.value))
+        return False
