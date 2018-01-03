@@ -279,12 +279,16 @@ class CoreConfigurationGenerator :
             self.__processSchemaEnd()
 
     def __processHeaderPreamble(self):
+        self.buffer.append('/* THIS IS A GENERATED FILE - DO NOT EDIT */')
+        self.buffer.append('')
         self.buffer.append('#pragma once')
         self.buffer.append('')
         self.buffer.append('#include <core/mw/CoreConfiguration.hpp>')
         self.buffer.append('')
 
     def __processSourcePreamble(self):
+        self.buffer.append('/* THIS IS A GENERATED FILE - DO NOT EDIT */')
+        self.buffer.append('')
         self.buffer.append('#include <' + os.path.join(self.object.package.provider, self.object.package.name, self.object.name + '.hpp') + '>')
         self.buffer.append('')
 
@@ -295,7 +299,7 @@ class CoreConfigurationGenerator :
         self.buffer.append('')
 
     def __processConfigurationBegin(self):
-        self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.object.data['name'] + ') //' + self.object.data['description'])
+        self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.object.data['name'] + ') // ' + self.object.data['description'])
 
     def __processFields(self):
         fields = self.object.orderedFields
