@@ -419,7 +419,7 @@ def load(mw, transport, args):
             try_again = False
 
     if try_again:
-        desc = bl.describe(uid)
+        desc = bl.describe_v2(uid)
         if desc is None:
             try_again = True
         else:
