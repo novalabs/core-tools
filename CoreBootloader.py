@@ -212,7 +212,7 @@ def describe(mw, transport, args):
                 try_again = False
 
         if try_again:
-            desc = bl.describe(uid)
+            desc = bl.describe_v2(uid)
             if desc is None:
                 try_again = True
             else:
@@ -248,7 +248,7 @@ def describe(mw, transport, args):
                     try_again = False
 
             if try_again:
-                desc = bl.describe(uid)
+                desc = bl.describe_v2(uid)
                 if desc is None:
                     try_again = True
                 else:
@@ -261,6 +261,10 @@ def describe(mw, transport, args):
             if not bl.deselect(uid):
                 print("Cannot deselect device")
                 retval = 1
+
+    #bl.select(0xFFFFFFFF)
+    #bl.deselect(0xFFFFFFFF)
+
     bl.stop()
 
     return retval
