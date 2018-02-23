@@ -2909,7 +2909,7 @@ class Bootloader(object):
                     return msg.ack.status, msg.ack.describe_v1
             msg = self._rx(timeout)
 
-        return None
+        return None, None
 
     def waitForDescribeV2Ack(self, m, timeout=5.0):
         msg = self._rx(timeout)
@@ -2922,7 +2922,7 @@ class Bootloader(object):
                     return msg.ack.status, msg.ack.describe_v2
             msg = self._rx(timeout)
 
-        return None
+        return None, None
 
     def waitForDescribeV3Ack(self, m, timeout=5.0):
         msg = self._rx(timeout)
