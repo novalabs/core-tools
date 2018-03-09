@@ -91,7 +91,6 @@ class ModuleTarget:
             },
             "enum:OSVersion": {
                 "enum": [
-                    "CHIBIOS_3",
                     "CHIBIOS_16"
                 ]
             },
