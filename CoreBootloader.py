@@ -80,6 +80,10 @@ def _create_argsparser():
     parser_reset = subparsers.add_parser('reset', help='Resets a Module')
     parser_reset.add_argument('uid', nargs=1, help="UID", default=None)
 
+    parser_crc  = subparsers.add_parser('hex_crc', help='Program CRC')
+    parser_crc.add_argument('file', nargs=1, help="FILE", default=None)
+    parser_crc.add_argument('size', nargs=1, help="SIZE", default=None)
+
     parser_reset = subparsers.add_parser('load', help='Load a FW')
     parser_reset.add_argument('what', nargs=1, help="[program|configuration]", default='program').completer = load_completer
     parser_reset.add_argument('file', nargs=1, help="FILE", default=None)
@@ -390,6 +394,21 @@ def reset(mw, transport, args):
     return retval
 
 
+def hex_crc(args):
+    ihex_file = args.file[0]
+    programSize = int(args.size[0])
+
+    from intelhex import IntelHex
+
+    ih = IntelHex()
+    ih.loadfile(ihex_file, format="hex")
+    ih.padding = 0xFF
+    bin = ih.tobinarray(size=programSize)
+    crc = stm32_crc32_bytes(0xffffffff, bin)
+    print(hex(crc))
+
+    return 0
+
 def load(mw, transport, args):
     bl = MW.Bootloader()
     bl.start()
@@ -484,6 +503,7 @@ def load(mw, transport, args):
     bl.stop()
 
     return retval
+
 
 
 def read_tags(mw, transport, args):
@@ -620,6 +640,10 @@ def _main():
 
     logging.basicConfig(stream=sys.stderr, level=verbosity2level(int(args.verbosity)))
     logging.debug('sys.argv = ' + repr(sys.argv))
+
+    if args.action == 'hex_crc':
+        retval = hex_crc(args)
+        sys.exit(retval)
 
     # TODO: Automate transport construction from "--transport" args
     assert args.transport[0] == 'DebugTransport'
