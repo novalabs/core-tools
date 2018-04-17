@@ -51,7 +51,7 @@ for target in data:
         print('  fi')
         for fmt in type[1]:
             print('  cp ' + os.path.join(NOVA_WORKSPACE_ROOT, 'build', type[0], target, '*.' + fmt) + ' ' + deploy_dir + '/')
-        print('  cp ' + os.path.join(NOVA_WORKSPACE_ROOT, 'build', type[0], target, '*.crc') + ' ' + deploy_dir + '/')
+        print('  cp ' + os.path.join(NOVA_WORKSPACE_ROOT, 'build', type[0], target, '*.crc') + ' ' + deploy_dir + '/' + ' || :')
         print('else')
         print('  echo $DIRECTORY does not exists >> $LOGFILE')
         print('  FAIL=-1')
