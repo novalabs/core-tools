@@ -55,12 +55,12 @@ def file_crc(args):
     
     data = bytearray(data)
     
-    print(len(data))
+    #print(len(data))
 
     for i in range(0, d):
         data.append(0);
         
-    print(len(data))
+    #print(len(data))
     
     crc = stm32_crc32_bytes(0xffffffff, data)
 
