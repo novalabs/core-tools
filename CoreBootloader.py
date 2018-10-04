@@ -80,6 +80,8 @@ def _create_argsparser():
     parser_reset = subparsers.add_parser('reset', help='Resets a Module')
     parser_reset.add_argument('uid', nargs=1, help="UID", default=None)
 
+    parser_reset_all = subparsers.add_parser('reset_all', help='Resets all')
+
     parser_crc  = subparsers.add_parser('hex_crc', help='Program CRC')
     parser_crc.add_argument('file', nargs=1, help="FILE", default=None)
     parser_crc.add_argument('size', nargs=1, help="SIZE", default=None)
@@ -104,6 +106,9 @@ def _create_argsparser():
     parser_read = subparsers.add_parser('read', help='Read module flash')
     parser_read.add_argument('address', nargs=1, help="ADDRESS", default=None)
     parser_read.add_argument('uid', nargs=1, help="UID", default=None)
+
+    parser_protocol_version = subparsers.add_parser('protocol_version', help='Protocol version')
+    parser_protocol_version.add_argument('uid', nargs=1, help="UID", default=None)
 
     parser_read_tags = subparsers.add_parser('tags', help='Read tags')
     parser_read_tags.add_argument('uid', nargs=1, help="UID", default=None)
@@ -394,6 +399,21 @@ def reset(mw, transport, args):
     return retval
 
 
+def reset_all(mw, transport, args):
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 0
+
+    if not bl.reset_all():
+        retval = 1
+
+    bl.stop()
+
+    return retval
+
+
 def hex_crc(args):
     ihex_file = args.file[0]
     programSize = int(args.size[0])
@@ -504,7 +524,34 @@ def load(mw, transport, args):
 
     return retval
 
+def protocol_version(mw, transport, args):
+    uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
 
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 0
+
+    if not bl.select(uid):
+        print("Cannot select device")
+        retval = 1
+    else:
+        pv = bl.protocol_version(uid)
+        if pv is None:
+            print("Cannot read protocol version")
+            retval = 1
+        else:
+            print(pv)
+
+
+    if not bl.deselect(uid):
+        print("Cannot deselect device")
+        retval = 1
+
+    bl.stop()
+
+    return retval
 
 def read_tags(mw, transport, args):
     uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
@@ -673,6 +720,9 @@ def _main():
     if args.action == 'reset':
         retval = reset(mw, transport, args)
 
+    if args.action == 'reset_all':
+        retval = reset_all(mw, transport, args)
+
     if args.action == 'load':
         retval = load(mw, transport, args)
 
@@ -696,6 +746,9 @@ def _main():
 
     if args.action == 'reboot':
         retval = mw.reboot_remote(args.name[0], False)
+
+    if args.action == 'protocol_version':
+        retval = protocol_version(mw, transport, args)
 
     if args.action == 'tags':
         retval = read_tags(mw, transport, args)

@@ -838,11 +838,13 @@ class BootMsg(Message):
         DESCRIBE_V3=0x30,
 
         TAGS_READ=0x40,
+        PROTOCOL_VERSION=0x41,
 
         IHEX_WRITE=0x50,
         IHEX_READ=0x51,
 
         RESET=0x60,
+        RESET_ALL=0x61,
         BOOTLOAD=0x70,
         BOOTLOAD_BY_NAME=0x71,
 
@@ -1111,7 +1113,7 @@ class BootMsg(Message):
             e = BootMsg.TypeEnum
             if self.cmd == e.IHEX_READ:
                 return '%s::[status=%s, cmd=%s, data=%s]' % (type(self).__name__, BootMsg.Acknowledge.AckEnum._reverse[self.status], BootMsg.TypeEnum._reverse[self.cmd], self.string)
-            elif self.cmd == e.TAGS_READ:
+            elif self.cmd in (e.TAGS_READ, e.PROTOCOL_VERSION):
                 subtext = self.string
             elif self.cmd == e.DESCRIBE_V1:
                 subtext = repr(self.describe_v1)
@@ -1137,7 +1139,7 @@ class BootMsg(Message):
             e = BootMsg.TypeEnum
             if self.cmd == e.IHEX_READ:
                 self.string, = struct.unpack_from('<%ds' % (BootMsg.IHEX.PAYLOAD_LENGTH - 1), payload, 0)
-            elif self.cmd == e.TAGS_READ:
+            elif self.cmd in (e.TAGS_READ, e.PROTOCOL_VERSION):
                 self.string, = struct.unpack_from('<%ds' % (16), payload, 0)
             elif self.cmd == e.DESCRIBE_V1:
                 self.describe_v1.unmarshal(payload)
@@ -1165,10 +1167,10 @@ class BootMsg(Message):
     def __repr__(self):
         t = self.cmd
         e = BootMsg.TypeEnum
-        if t in (e.BOOTLOAD,):
+        if t in (e.BOOTLOAD, e.RESET_ALL):
             subtext = repr(self.empty)
             subtype = type(self.empty).__name__
-        elif t in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET, e.DESCRIBE_V1, e.DESCRIBE_V2, e.DESCRIBE_V3,):
+        elif t in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET, e.DESCRIBE_V1, e.DESCRIBE_V2, e.DESCRIBE_V3, e.PROTOCOL_VERSION):
             subtext = repr(self.uid)
             subtype = type(self.uid).__name__
         elif t in (e.WRITE_PROGRAM_CRC,):
@@ -1197,7 +1199,7 @@ class BootMsg(Message):
     def marshal(self):
         cmd = self.cmd
         e = BootMsg.TypeEnum
-        if cmd in (e.REQUEST, e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.ACK, e.RESET, e.DESCRIBE_V1, e.DESCRIBE_V2, e.DESCRIBE_V3,):
+        if cmd in (e.REQUEST, e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.ACK, e.RESET, e.DESCRIBE_V1, e.DESCRIBE_V2, e.DESCRIBE_V3, e.PROTOCOL_VERSION):
             data = self.uid.marshal()
             length = self.uid.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
@@ -1221,7 +1223,7 @@ class BootMsg(Message):
             data = self.uid_and_address.marshal()
             length = self.uid_and_address.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
-        elif cmd in (e.BOOTLOAD,):
+        elif cmd in (e.BOOTLOAD, e.RESET_ALL):
             data = self.empty.marshal()
             length = self.empty.PAYLOAD_LENGTH
             padding = self.MAX_PAYLOAD_LENGTH - length
@@ -1234,7 +1236,7 @@ class BootMsg(Message):
         self.clean()
         cmd, seq, payload = struct.unpack_from('<BB%ds' % self.MAX_PAYLOAD_LENGTH, data, offset)
         e = BootMsg.TypeEnum
-        if cmd in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET, e.DESCRIBE_V1, e.DESCRIBE_V2, e.DESCRIBE_V3,):
+        if cmd in (e.IDENTIFY_SLAVE, e.SELECT_SLAVE, e.DESELECT_SLAVE, e.ERASE_PROGRAM, e.ERASE_CONFIGURATION, e.ERASE_USER_CONFIGURATION, e.RESET, e.DESCRIBE_V1, e.DESCRIBE_V2, e.DESCRIBE_V3, e.PROTOCOL_VERSION):
             self.uid.unmarshal(payload)
         elif cmd in (e.WRITE_PROGRAM_CRC,):
             self.uid_and_crc.unmarshal(payload)
@@ -1248,7 +1250,7 @@ class BootMsg(Message):
             self.ihex.unmarshal(payload)
         elif cmd in (e.ACK,):
             self.ack.unmarshal(payload)
-        elif cmd in (e.BOOTLOAD,):
+        elif cmd in (e.BOOTLOAD, e.RESET_ALL):
             self.empty.unmarshal(payload)
         else:
             raise ValueError('Unknown boot message command %d' % cmd)
@@ -2779,6 +2781,29 @@ class Bootloader(object):
 
         return None
 
+    def _protocolVersionCommand(self, cmd, uid, seq=None):
+        if seq is None:
+            seq = self._lastSeq + 1
+            if seq == 256:
+                seq = 0
+
+        m = BootMsg(cmd, seq)
+        m.uid = BootMsg.UID(m, uid)
+
+        #####print(repr(m))
+
+        self._tx(m)
+
+        status, tags = self.waitForTagsAck(m)
+
+        if status is not None:
+            if status == BootMsg.Acknowledge.AckEnum.OK:
+                tags = tags.replace(b'\xff', b'\x00')
+                return tags.decode('ascii')
+
+        return None
+
+
     def _tagsReadCommand(self, cmd, uid, address, seq=None):
         if seq is None:
             seq = self._lastSeq + 1
@@ -2818,6 +2843,9 @@ class Bootloader(object):
     def reset(self, uid):
         return self._uidCommand(BootMsg.TypeEnum.RESET, uid)
 
+    def reset_all(self):
+        return self._emptyCommandNoAck(BootMsg.TypeEnum.RESET_ALL)
+
     def ihex_write(self, type, ihex):
         return self._ihexWriteCommand(BootMsg.TypeEnum.IHEX_WRITE, type, ihex)
 
@@ -2845,6 +2873,9 @@ class Bootloader(object):
 
     def describe_v3(self, uid):
         return self._describeV3Command(BootMsg.TypeEnum.DESCRIBE_V3, uid)
+
+    def protocol_version(self, uid):
+        return self._protocolVersionCommand(BootMsg.TypeEnum.PROTOCOL_VERSION, uid)
 
     def tags_read(self, uid, address):
         data = bytearray()
