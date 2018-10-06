@@ -155,6 +155,8 @@ class CoreMessageGenerator :
             self.__processDocumentationEnd()
 
     def __processPreamble(self):
+        self.buffer.append('/* THIS IS A GENERATED FILE - DO NOT EDIT */')
+        self.buffer.append('')
         self.buffer.append('#pragma once')
         self.buffer.append('')
         self.buffer.append('#include <core/mw/CoreMessage.hpp>')
@@ -167,7 +169,7 @@ class CoreMessageGenerator :
         self.buffer.append('')
 
     def __processMessageBegin(self):
-        self.buffer.append('CORE_MESSAGE_BEGIN(' + self.object.data['name'] + ') //' + self.object.data['description'])
+        self.buffer.append('CORE_MESSAGE_BEGIN(' + self.object.data['name'] + ') // ' + self.object.data['description'])
 
     def __processFields(self):
         fields = self.object.orderedFields

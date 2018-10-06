@@ -244,6 +244,7 @@ class CoreConfigurationGenerator :
             self.buffer.append("// --- FIELDS -----------------------------------------------------------------")
             self.__processFields()
             self.buffer.append("// ----------------------------------------------------------------------------")
+            self.__processFieldsEnum()
             self.__processConfigurationSignature()
             self.__processConfigurationLength()
             self.__processConfigurationEnd()
@@ -262,6 +263,9 @@ class CoreConfigurationGenerator :
             self.__processMapBegin()
             self.__processMapFields()
             self.__processMapEnd()
+            self.__processSetFieldEnumBegin()
+            self.__processSetFieldEnumFields()
+            self.__processSetFieldEnumEnd()
             self.__processNamsepaceEnd()
 
     def __processDocumentation(self):
@@ -279,12 +283,16 @@ class CoreConfigurationGenerator :
             self.__processSchemaEnd()
 
     def __processHeaderPreamble(self):
+        self.buffer.append('/* THIS IS A GENERATED FILE - DO NOT EDIT */')
+        self.buffer.append('')
         self.buffer.append('#pragma once')
         self.buffer.append('')
         self.buffer.append('#include <core/mw/CoreConfiguration.hpp>')
         self.buffer.append('')
 
     def __processSourcePreamble(self):
+        self.buffer.append('/* THIS IS A GENERATED FILE - DO NOT EDIT */')
+        self.buffer.append('')
         self.buffer.append('#include <' + os.path.join(self.object.package.provider, self.object.package.name, self.object.name + '.hpp') + '>')
         self.buffer.append('')
 
@@ -295,7 +303,7 @@ class CoreConfigurationGenerator :
         self.buffer.append('')
 
     def __processConfigurationBegin(self):
-        self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.object.data['name'] + ') //' + self.object.data['description'])
+        self.buffer.append('CORE_CONFIGURATION_BEGIN(' + self.object.data['name'] + ') // ' + self.object.data['description'])
 
     def __processFields(self):
         fields = self.object.orderedFields
@@ -343,6 +351,33 @@ class CoreConfigurationGenerator :
 
     def __processMapEnd(self):
         self.buffer.append('CORE_CONFIGURATION_MAP_END()')
+        self.buffer.append('')
+
+    def __processSetFieldEnumBegin(self):
+        name = self.object.data['name']
+        self.buffer.append('CORE_CONFIGURATION_SET_FIELD_ENUM_BEGIN(' + name + ')')
+
+    def __processSetFieldEnumFields(self):
+        fields = self.object.data['fields']
+        for field in fields:
+            if field['size'] == 1:
+                self.buffer.append('	CORE_CONFIGURATION_SET_FIELD_ENUM_SCALAR(' + field['name'].upper() + ', ' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ')')
+            else:
+                self.buffer.append('	CORE_CONFIGURATION_SET_FIELD_ENUM_ARRAY(' + field['name'].upper() + ', ' + field['name'] + ', ' + field['type'] + ', ' + str(field['size']) + ')')
+
+    def __processSetFieldEnumEnd(self):
+        self.buffer.append('CORE_CONFIGURATION_SET_FIELD_ENUM_END()')
+        self.buffer.append('')
+
+    def __processFieldsEnum(self):
+        self.buffer.append('CORE_CONFIGURATION_FIELDS_ENUM_BEGIN(Fields) {')
+        fields = self.object.orderedFields
+        i = 0
+        for field in fields:
+            self.buffer.append('	CORE_CONFIGURATION_FIELDS_ENUM_VALUE(' + field['name'].upper() + ', ' + str(i) + ')')
+            i += 1
+
+        self.buffer.append('CORE_CONFIGURATION_FIELDS_ENUM_END()')
 
     def __processConfigurationSignature(self):
         self.buffer.append('CORE_CONFIGURATION_SIGNATURE(' + hex(self.object.signature) + ')')

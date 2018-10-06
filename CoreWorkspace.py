@@ -31,11 +31,7 @@ if NOVA_CORE_TOOLCHAIN is None:
 
 NOVA_CHIBIOS_16_ROOT = os.environ.get("NOVA_CHIBIOS_16_ROOT")
 if NOVA_CHIBIOS_16_ROOT is None:
-    CoreConsole.out(CoreConsole.warning("NOVA_CHIBIOS_16_ROOT environment variable not found, will check later if we really need it"))
-
-NOVA_CHIBIOS_ROOT = os.environ.get("NOVA_CHIBIOS_ROOT")
-if NOVA_CHIBIOS_ROOT is None:
-    CoreConsole.out(CoreConsole.error("NOVA_CHIBIOS_ROOT environment variable not found"))
+    CoreConsole.out(CoreConsole.warning("NOVA_CHIBIOS_16_ROOT environment variable not found"))
     sys.exit(-1)
 
 NOVA_WORKSPACE_ROOT = os.environ.get("NOVA_WORKSPACE_ROOT")
@@ -52,21 +48,14 @@ if CMAKE_MODULE_PATH is None:
     sys.exit(-1)
 
 
-def cmakeCommand(chip, source, buildType, OSVersion="CHIBIOS_3", workspaceRoot=NOVA_WORKSPACE_ROOT):
+def cmakeCommand(chip, source, buildType, OSVersion="CHIBIOS_16", workspaceRoot=NOVA_WORKSPACE_ROOT):
     cmake_cmd = "cmake --verbose"
     cmake_cmd += " -DSTM32_CHIP=" + chip
     cmake_cmd += " -DCMAKE_TOOLCHAIN_FILE=" + os.path.join(CMAKE_PREFIX_PATH, "gcc_stm32.cmake")
     cmake_cmd += " -DCMAKE_BUILD_TYPE=" + buildType
     cmake_cmd += " -DTOOLCHAIN_PREFIX=" + NOVA_CORE_TOOLCHAIN
     cmake_cmd += " -DCMAKE_MODULE_PATH=" + CMAKE_MODULE_PATH
-    if OSVersion == "CHIBIOS_3":
-        cmake_cmd += " -DCHIBIOS_ROOT=" + NOVA_CHIBIOS_ROOT
-    elif OSVersion == "CHIBIOS_16":
-        if NOVA_CHIBIOS_16_ROOT is None:
-            CoreConsole.out(CoreConsole.error("NOVA_CHIBIOS_16_ROOT environment variable not found, and we really need it"))
-            sys.exit(-1)
-        cmake_cmd += " -DCHIBIOS_ROOT=" + NOVA_CHIBIOS_16_ROOT
-
+    cmake_cmd += " -DCHIBIOS_ROOT=" + NOVA_CHIBIOS_16_ROOT
     cmake_cmd += " -DNOVA_ROOT=" + NOVA_CORE_ROOT
     cmake_cmd += " -DNOVA_WORKSPACE_ROOT=" + workspaceRoot
     cmake_cmd += ' -G "Eclipse CDT4 - Unix Makefiles"'
