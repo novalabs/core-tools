@@ -4,12 +4,16 @@
 import sys, os, threading, struct
 import logging
 import argparse
+import tempfile
 
 import novalabs.core.MW as MW
 from novalabs.misc.helpers import *
 from novalabs.misc.crc import *
+from novalabs.misc.fwu import *
 
 from time import sleep
+
+from intelhex import IntelHex
 
 
 def progressBar(value, endvalue, bar_length=20):
@@ -84,7 +88,11 @@ def _create_argsparser():
     parser_crc.add_argument('file', nargs=1, help="FILE", default=None)
     parser_crc.add_argument('size', nargs=1, help="SIZE", default=None)
 
-    parser_reset = subparsers.add_parser('load', help='Load a FW')
+    parser_reset = subparsers.add_parser('update', help='Update a device from a FWU file')
+    parser_reset.add_argument('file', nargs=1, help="FILE", default=None)
+    parser_reset.add_argument('uid', nargs='*', help="UID", default=None)
+
+    parser_reset = subparsers.add_parser('load', help='Load a HEX image')
     parser_reset.add_argument('what', nargs=1, help="[program|configuration]", default='program').completer = load_completer
     parser_reset.add_argument('file', nargs=1, help="FILE", default=None)
     parser_reset.add_argument('uid', nargs=1, help="UID", default=None)
@@ -409,6 +417,95 @@ def hex_crc(args):
 
     return 0
 
+
+def write_ihex(bl, data, crc):
+    type = MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
+    if not bl.ihex_write(type, ""):
+        print("Cannot write IHEX data")
+        return 1
+
+    l = 0
+    for line in data:
+        type = MW.BootMsg.IHEX.IHexTypeEnum.DATA
+        progressBar(l, len(data))
+        l += 1
+
+        if not bl.ihex_write(type, line):
+            print("Cannot write IHEX data")
+            return 1
+
+    print("")
+
+    type = MW.BootMsg.IHEX.IHexTypeEnum.END
+    if not bl.ihex_write(type, ""):
+        print("Cannot write IHEX data")
+        return 1
+
+
+def update(mw, transport, args):
+    bl = MW.Bootloader()
+    bl.start()
+    sleep(1)
+
+    retval = 1
+
+    uid = 0
+
+    if len(args.uid) == 0 and len(bl.getSlaves()) == 1:
+        uid = next(iter(bl.getSlaves()))
+    else:
+        uid = MW.BootMsg.UID.getUIDFromHexString(args.uid[0])
+        if not uid in bl.getSlaves():
+            print("Device is not in bootload mode")
+            return 1
+
+    if not bl.select(uid):
+        print("Cannot select device")
+        return 1
+
+    try_again = True
+
+    if try_again:
+        desc = bl.describe_v3(uid)
+        if desc is None:
+            try_again = True
+        else:
+            print("TARGET:" + formatDescription_V3(uid, desc))
+            try_again = False
+
+    if try_again:
+        desc = bl.describe_v2(uid)
+        if desc is None:
+            try_again = True
+        else:
+            print("TARGET:" + formatDescription_V2(uid, desc))
+            try_again = False
+
+    if try_again:
+        retval = 1
+    else:
+        fwu_file = args.file[0]
+        fwu = fwu_parse(fwu_file)
+
+        if len(fwu.program) > 0:
+            if not bl.eraseProgram(uid):
+                print("Cannot erase program")
+                return 1
+
+        write_ihex(bl, fwu.program, fwu.program_crc)
+
+        if len(fwu.program) > 0:
+            if not bl.write_program_crc(uid, fwu.program_crc):
+                print("Cannot write CRC")
+                return 1
+
+    bl.deselect(uid)
+
+    bl.stop()
+
+    return retval
+
+
 def load(mw, transport, args):
     bl = MW.Bootloader()
     bl.start()
@@ -449,8 +546,7 @@ def load(mw, transport, args):
         retval = 1
     else:
         programSize = desc.program
-        from intelhex import IntelHex
-
+        
         ih = IntelHex()
         ih.loadfile(ihex_file, format="hex")
         ih.padding = 0xFF
@@ -467,31 +563,7 @@ def load(mw, transport, args):
         with open(ihex_file) as f:
             data = f.read().splitlines()
 
-        type = MW.BootMsg.IHEX.IHexTypeEnum.BEGIN
-        if not bl.ihex_write(type, ""):
-            print("Cannot write IHEX data")
-            return 1
-
-        l = 0
-        for line in data:
-            type = MW.BootMsg.IHEX.IHexTypeEnum.DATA
-            progressBar(l, len(data))
-#            print("%d of %d" % (l, len(data)))
-
-            l += 1
-
- #           print(line)
-
-            if not bl.ihex_write(type, line):
-                print("Cannot write IHEX data")
-                return 1
-
-        print("")
-
-        type = MW.BootMsg.IHEX.IHexTypeEnum.END
-        if not bl.ihex_write(type, ""):
-            print("Cannot write IHEX data")
-            return 1
+        write_ihex(bl, data, crc)
 
         if what == 'program':
             if not bl.write_program_crc(uid, crc):
@@ -503,7 +575,6 @@ def load(mw, transport, args):
     bl.stop()
 
     return retval
-
 
 
 def read_tags(mw, transport, args):
@@ -635,6 +706,7 @@ def read(mw, transport, args):
 
 
 def _main():
+    retval = 1
     parser = _create_argsparser()
     args = parser.parse_args()
 
@@ -672,6 +744,9 @@ def _main():
 
     if args.action == 'reset':
         retval = reset(mw, transport, args)
+
+    if args.action == 'update':
+        retval = update(mw, transport, args)
 
     if args.action == 'load':
         retval = load(mw, transport, args)
